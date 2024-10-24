@@ -50,8 +50,9 @@
         return {
             top: `${layout.y * 5}rem`,
             left: `${layout.x * 5}rem`,
-            width: `${layout.w! * 4.5}rem`,
-            height: `${layout.h! * 4.5}rem`,
+            width: `${layout.w! * 5 - 0.5}rem`,
+            height: `${layout.h! * 5 - 0.5}rem`,
+            margin: `0.25rem`,
         }
     }
 
