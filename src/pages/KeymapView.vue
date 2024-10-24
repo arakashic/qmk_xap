@@ -139,7 +139,7 @@
             <!--   Keymap   -->
             <q-tab-panels v-model="layerTab">
                 <q-tab-panel
-                    :style="{ height: `${Math.max(keymap?.size.y ?? 2, 2) * 3}rem` }"
+                    :style="{ height: `${Math.max(keymap?.size.y ?? 2, 2) * 6}rem` }"
                     v-for="(layer, layer_idx) in keymap?.keys"
                     :name="layer_idx"
                 >
