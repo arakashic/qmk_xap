@@ -47,18 +47,27 @@
     }
 
     function applyLayout(layout: LayoutEntry): StyleValue {
+        const top = `${layout.y * 5}rem`
+        const left = `${layout.x * 5}rem`
+        const width = `${layout.w! * 5 - 0.5}rem`
+        const height = `${layout.h! * 5 - 0.5}rem`
+
         return {
-            top: `${layout.y * 5}rem`,
-            left: `${layout.x * 5}rem`,
-            width: `${layout.w! * 5 - 0.5}rem`,
-            height: `${layout.h! * 5 - 0.5}rem`,
+            '--key-top': top,
+            '--key-left': left,
+            '--key-width': width,
+            '--key-height': height,
+            top: top,
+            left: left,
+            width: width,
+            height: height,
             margin: `0.25rem`,
         }
     }
 
     function applyKeySelection(position: Point3D): string {
         return selectedKey.value?.x == position.x && selectedKey.value?.y == position.y && selectedKey.value?.z == position.z
-            ? 'border-amber-500 ring-amber-300 scale-110'
+            ? 'border-amber-500 ring-amber-300'
             : 'border-black ring-neutral-300'
     }
 
@@ -148,7 +157,7 @@
                         <template v-for="row in layer">
                             <button
                                 v-for="col in row.filter((col) => col != null)"
-                                class="hover:scale-110 truncate rounded-lg p-2 absolute align-middle text-black border-2 ring-4 ring-inset shadow-md"
+                                class="key-button truncate rounded-lg p-2 absolute align-middle text-black border-2 ring-4 ring-inset shadow-md"
                                 :class="applyKeySelection(col!.key.position)"
                                 :style="applyLayout(col!.layout)"
                                 @click="() => (selectedKey = col!.key.position)"
@@ -191,7 +200,7 @@
                         :key="code.code"
                         :disabled="device?.secure_status != 'Unlocked'"
                         style="width: 4.5rem; height: 4.5rem"
-                        class="mr-2 mb-2 hover:scale-110 truncate rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
+                        class="keycode-button mr-2 mb-2 truncate rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
                         @click="remapKey(code.code!)"
                     >
                         <span>{{ code.label ?? code.key }}</span>
@@ -208,3 +217,17 @@
         </div>
     </q-page>
 </template>
+
+<style scoped>
+.key-button:hover {
+    width: calc(var(--key-width) + 0.5rem) !important;
+    height: calc(var(--key-height) + 0.5rem) !important;
+    top: calc(var(--key-top) - 0.25rem) !important;
+    left: calc(var(--key-left) - 0.25rem) !important;
+}
+
+.keycode-button:hover {
+    width: 5rem !important;
+    height: 5rem !important;
+}
+</style>
