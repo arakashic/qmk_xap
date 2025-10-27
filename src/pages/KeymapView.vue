@@ -50,8 +50,9 @@
         return {
             top: `${layout.y * 5}rem`,
             left: `${layout.x * 5}rem`,
-            width: `${layout.w! * 4.5}rem`,
-            height: `${layout.h! * 4.5}rem`,
+            width: `${layout.w! * 5 - 0.5}rem`,
+            height: `${layout.h! * 5 - 0.5}rem`,
+            margin: `0.25rem`,
         }
     }
 
@@ -139,7 +140,7 @@
             <!--   Keymap   -->
             <q-tab-panels v-model="layerTab">
                 <q-tab-panel
-                    :style="{ height: `${Math.max(keymap?.size.y ?? 2, 2) * 3}rem` }"
+                    :style="{ height: `${Math.max(keymap?.size.y ?? 2, 2) * 6}rem` }"
                     v-for="(layer, layer_idx) in keymap?.keys"
                     :name="layer_idx"
                 >
