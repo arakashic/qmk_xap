@@ -7,6 +7,7 @@ use std::{
 use anyhow::Result;
 use log::error;
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, NoneAsEmptyString};
 use specta::Type;
 
@@ -44,31 +45,99 @@ impl KeyCode {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 struct KeyCodes {
-    #[serde(deserialize_with = "xap_keycode_from_hex_map")]
     keycodes: HashMap<u16, KeyCode>,
+    reset: bool,
+    deletions: Vec<u16>,
+}
+
+impl<'de> Deserialize<'de> for KeyCodes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawKeyCodes {
+            #[serde(default)]
+            keycodes: HashMap<String, Value>,
+        }
+
+        let raw = RawKeyCodes::deserialize(deserializer)?;
+
+        let mut reset = false;
+        let mut deletions = Vec::new();
+        let mut keycodes = HashMap::new();
+
+        for (key, value) in raw.keycodes {
+            // Handle special !reset! key
+            if key == "!reset!" {
+                reset = true;
+                continue;
+            }
+
+            // Parse the hex code
+            let code = u16::from_str_radix(key.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom(format!("invalid hex code: {}", key)))?;
+
+            // Handle special !delete! value
+            if let Value::String(s) = &value {
+                if s == "!delete!" {
+                    deletions.push(code);
+                    continue;
+                }
+            }
+
+            // Deserialize as KeyCode
+            let mut keycode: KeyCode = serde_json::from_value(value)
+                .map_err(|e| D::Error::custom(format!("failed to parse keycode: {}", e)))?;
+            keycode.code = code;
+            keycodes.insert(code, keycode);
+        }
+
+        Ok(KeyCodes {
+            keycodes,
+            reset,
+            deletions,
+        })
+    }
 }
 
 pub(crate) fn read_xap_keycodes(path: impl AsRef<Path>) -> Result<Vec<XapKeyCodeCategory>> {
     let mut all = HashMap::new();
 
-    for entry in fs::read_dir(path)?.filter_map(|e| e.ok()) {
+    // Collect and sort entries by filename to ensure version ordering
+    let mut entries: Vec<_> = fs::read_dir(path)?
+        .filter_map(|e| e.ok())
+        .filter(|entry| {
+            let path = entry.path();
+            !path.is_dir()
+                && path
+                    .file_name()
+                    .is_some_and(|filename| filename.to_string_lossy().starts_with("keycodes"))
+        })
+        .collect();
+
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in entries {
         let path = entry.path();
-
-        if path.is_dir()
-            || path
-                .file_name()
-                .is_some_and(|filename| !filename.to_string_lossy().starts_with("keycodes"))
-        {
-            continue;
-        }
-
         let raw_hjson = read_to_string(&path)?;
 
         match deser_hjson::from_str::<KeyCodes>(&raw_hjson) {
             Ok(codes) => {
+                // Handle reset: clear all existing keycodes if reset flag is set
+                if codes.reset {
+                    all.clear();
+                }
+
+                // Add new keycodes
                 all.extend(codes.keycodes);
+
+                // Handle deletions: remove keys marked with !delete!
+                for code in codes.deletions {
+                    all.remove(&code);
+                }
             }
             Err(err) => {
                 error!("failed to deserialize keycodes from file {path:?} with error: {err}",);
@@ -96,22 +165,6 @@ pub(crate) fn read_xap_keycodes(path: impl AsRef<Path>) -> Result<Vec<XapKeyCode
         .collect();
 
     Ok(keycodes)
-}
-
-fn xap_keycode_from_hex_map<'de, D>(deserializer: D) -> Result<HashMap<u16, KeyCode>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let map: HashMap<String, KeyCode> = Deserialize::deserialize(deserializer)?;
-
-    map.into_iter()
-        .try_fold(HashMap::new(), |mut result, (raw_code, mut keycode)| {
-            let code = u16::from_str_radix(raw_code.trim_start_matches("0x"), 16).ok()?;
-            keycode.code = code;
-            result.insert(code, keycode);
-            Some(result)
-        })
-        .ok_or(D::Error::custom("failed to parse keycode table"))
 }
 
 #[cfg(test)]
