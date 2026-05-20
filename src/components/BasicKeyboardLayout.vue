@@ -140,50 +140,6 @@
         { key: 'KC_KP_DOT', x: 21, y: 5.5, w: 1, h: 1 },
     ]
 
-    const OVERFLOW_GROUPS = [
-        {
-            label: 'Extended F-Keys',
-            keys: [
-                'KC_F13', 'KC_F14', 'KC_F15', 'KC_F16', 'KC_F17', 'KC_F18',
-                'KC_F19', 'KC_F20', 'KC_F21', 'KC_F22', 'KC_F23', 'KC_F24',
-            ],
-        },
-        {
-            label: 'Non-US',
-            keys: ['KC_NONUS_HASH', 'KC_NONUS_BACKSLASH'],
-        },
-        {
-            label: 'Locking Keys',
-            keys: ['KC_LOCKING_CAPS_LOCK', 'KC_LOCKING_NUM_LOCK', 'KC_LOCKING_SCROLL_LOCK'],
-        },
-        {
-            label: 'Numpad Extras',
-            keys: ['KC_KP_EQUAL', 'KC_KP_EQUAL_AS400', 'KC_KP_COMMA'],
-        },
-        {
-            label: 'Commands',
-            keys: [
-                'KC_KB_POWER', 'KC_EXECUTE', 'KC_HELP', 'KC_MENU', 'KC_SELECT', 'KC_STOP',
-                'KC_AGAIN', 'KC_UNDO', 'KC_CUT', 'KC_COPY', 'KC_PASTE', 'KC_FIND',
-                'KC_KB_MUTE', 'KC_KB_VOLUME_UP', 'KC_KB_VOLUME_DOWN',
-                'KC_ALTERNATE_ERASE', 'KC_SYSTEM_REQUEST', 'KC_CANCEL', 'KC_CLEAR',
-                'KC_PRIOR', 'KC_RETURN', 'KC_SEPARATOR', 'KC_OUT', 'KC_OPER',
-                'KC_CLEAR_AGAIN', 'KC_CRSEL', 'KC_EXSEL',
-            ],
-        },
-        {
-            label: 'International',
-            keys: [
-                'KC_INTERNATIONAL_1', 'KC_INTERNATIONAL_2', 'KC_INTERNATIONAL_3',
-                'KC_INTERNATIONAL_4', 'KC_INTERNATIONAL_5', 'KC_INTERNATIONAL_6',
-                'KC_INTERNATIONAL_7', 'KC_INTERNATIONAL_8', 'KC_INTERNATIONAL_9',
-                'KC_LANGUAGE_1', 'KC_LANGUAGE_2', 'KC_LANGUAGE_3', 'KC_LANGUAGE_4',
-                'KC_LANGUAGE_5', 'KC_LANGUAGE_6', 'KC_LANGUAGE_7', 'KC_LANGUAGE_8',
-                'KC_LANGUAGE_9',
-            ],
-        },
-    ]
-
     const codeMap = computed(() => {
         const m = new Map<string, KeyCode>()
         for (const c of props.codes) m.set(c.key, c)
@@ -192,16 +148,6 @@
 
     const layoutKeys = computed(() =>
         ANSI_LAYOUT.map((pos) => ({ pos, code: codeMap.value.get(pos.key) ?? null })),
-    )
-
-    const overflowGroups = computed(() =>
-        OVERFLOW_GROUPS.map((g) => ({
-            label: g.label,
-            codes: g.keys.flatMap((k) => {
-                const c = codeMap.value.get(k)
-                return c ? [c] : []
-            }),
-        })).filter((g) => g.codes.length > 0),
     )
 
     function posToStyle(pos: KeyPos): StyleValue {
@@ -236,28 +182,14 @@
                 <q-tooltip v-if="props.disabled" icon="block" class="bg-red" style="white-space: nowrap">
                     Device is locked
                 </q-tooltip>
-            </button>
-        </div>
-        <div
-            v-for="group in overflowGroups"
-            :key="group.label"
-            class="mt-4"
-        >
-            <div class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
-                {{ group.label }}
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <button
-                    v-for="code in group.codes"
-                    :key="code.code"
-                    :disabled="props.disabled || code.code === undefined"
-                    style="width: 4.5rem; height: 4.5rem"
-                    class="keycode-button key-name-button rounded-lg p-2 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
-                    @click="code.code !== undefined && emit('select', code.code)"
+                <q-tooltip
+                    v-else-if="code?.description"
+                    class="text-xs"
+                    style="white-space: normal; max-width: 18rem"
                 >
-                    <span>{{ code.label ?? code.key }}</span>
-                </button>
-            </div>
+                    {{ code.description }}
+                </q-tooltip>
+            </button>
         </div>
     </div>
 </template>

@@ -25,29 +25,12 @@
     const xapConstants: Ref<XapConstants | null> = ref(null)
     const keymap: Ref<MappedKeymap | null> = ref(null)
 
-    const LIGHTING_SUBGROUPS = ['backlight', 'led_matrix', 'rgb', 'rgb_matrix', 'underglow']
+    const keycodeTabs = computed(() => xapConstants.value?.keycode_view?.tabs ?? [])
 
-    const lightingCategories = computed(() => {
-        const cats = xapConstants.value?.keycodes ?? []
-        return cats
-            .filter((c) => LIGHTING_SUBGROUPS.includes(c.name))
-            .sort((a, b) => a.name.localeCompare(b.name))
-    })
-
-    const nonLightingCategories = computed(() => {
-        const cats = xapConstants.value?.keycodes ?? []
-        return cats
-            .filter((c) => !LIGHTING_SUBGROUPS.includes(c.name))
-            .sort((a, b) => a.name.localeCompare(b.name))
-    })
-
-    const keycodeCategoryRows = computed(() => {
-        const topLevel = [...nonLightingCategories.value]
-        if (lightingCategories.value.length > 0) {
-            topLevel.push({ name: 'lighting', codes: [] })
-        }
-        const mid = Math.ceil(topLevel.length / 2)
-        return [topLevel.slice(0, mid), topLevel.slice(mid)]
+    const keycodeTabRows = computed(() => {
+        const tabs = keycodeTabs.value
+        const mid = Math.ceil(tabs.length / 2)
+        return [tabs.slice(0, mid), tabs.slice(mid)]
     })
 
     async function remapKey(code: number) {
@@ -206,7 +189,7 @@
             </q-tab-panels>
             <!-- Keycodes -->
             <q-tabs
-                v-for="(row, rowIdx) in keycodeCategoryRows"
+                v-for="(row, rowIdx) in keycodeTabRows"
                 :key="rowIdx"
                 v-model="keycodeTab"
                 class="text-primary"
@@ -216,65 +199,44 @@
                 dense
             >
                 <q-tab
-                    v-for="category in row"
-                    :key="category.name"
-                    :label="category.name"
-                    :name="category.name"
-                />
+                    v-for="tab in row"
+                    :key="tab.id"
+                    :name="tab.id"
+                    :class="{ 'fallback-tab': tab.is_fallback }"
+                >
+                    <span>{{ tab.label }}</span>
+                    <span v-if="tab.is_fallback" class="fallback-marker">(unmapped)</span>
+                </q-tab>
             </q-tabs>
             <q-tab-panels v-model="keycodeTab">
                 <q-tab-panel
-                    v-for="category in nonLightingCategories"
-                    :key="category.name"
-                    :name="category.name"
-                    :label="category.name"
+                    v-for="tab in keycodeTabs"
+                    :key="tab.id"
+                    :name="tab.id"
                     class="row"
                 >
-                    <BasicKeyboardLayout
-                        v-if="category.name === 'basic'"
-                        :codes="category.codes"
-                        :disabled="device?.secure_status != 'Unlocked'"
-                        @select="remapKey"
-                    />
-                    <template v-else>
-                        <button
-                            v-for="code in category.codes"
-                            :key="code.code"
-                            :disabled="device?.secure_status != 'Unlocked'"
-                            style="width: 4.5rem; height: 4.5rem"
-                            class="keycode-button key-name-button mr-2 mb-2 rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
-                            @click="remapKey(code.code!)"
-                        >
-                            <span>{{ code.label ?? code.key }}</span>
-                            <q-tooltip
-                                v-if="device?.secure_status != 'Unlocked'"
-                                icon="block"
-                                class="bg-red"
-                                style="white-space: nowrap"
-                            >
-                                Device is locked
-                            </q-tooltip>
-                        </button>
-                    </template>
-                </q-tab-panel>
-                <q-tab-panel
-                    v-if="lightingCategories.length > 0"
-                    name="lighting"
-                    label="lighting"
-                >
                     <div
-                        v-for="group in lightingCategories"
-                        :key="group.name"
-                        class="mt-4"
+                        v-for="subgroup in tab.subgroups"
+                        :key="subgroup.id"
+                        class="subgroup mt-4 w-full"
+                        :class="{ 'fallback-subgroup': subgroup.is_fallback }"
                     >
                         <div
+                            v-if="subgroup.label || tab.subgroups.length > 1 || subgroup.is_fallback"
                             class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide"
                         >
-                            {{ group.name }}
+                            {{ subgroup.label ?? subgroup.id
+                            }}<span v-if="subgroup.is_fallback" class="fallback-marker"> (unmapped)</span>
                         </div>
-                        <div class="flex flex-wrap gap-2">
+                        <BasicKeyboardLayout
+                            v-if="subgroup.render_mode === 'ansi'"
+                            :codes="subgroup.codes"
+                            :disabled="device?.secure_status != 'Unlocked'"
+                            @select="remapKey"
+                        />
+                        <div v-else class="flex flex-wrap gap-2">
                             <button
-                                v-for="code in group.codes"
+                                v-for="code in subgroup.codes"
                                 :key="code.code"
                                 :disabled="device?.secure_status != 'Unlocked'"
                                 style="width: 4.5rem; height: 4.5rem"
@@ -283,7 +245,14 @@
                             >
                                 <span>{{ code.label ?? code.key }}</span>
                                 <q-tooltip
-                                    v-if="device?.secure_status != 'Unlocked'"
+                                    v-if="code.description"
+                                    class="text-xs"
+                                    style="white-space: normal; max-width: 18rem"
+                                >
+                                    {{ code.description }}
+                                </q-tooltip>
+                                <q-tooltip
+                                    v-else-if="device?.secure_status != 'Unlocked'"
                                     icon="block"
                                     class="bg-red"
                                     style="white-space: nowrap"
@@ -353,5 +322,21 @@
     flex: 0 0 auto;
     width: 100%;
     border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.fallback-tab {
+    border: 1px dashed #d97706;
+    border-radius: 0.25rem;
+}
+
+.fallback-marker {
+    margin-left: 0.25rem;
+    color: #d97706;
+    font-size: 0.7rem;
+    font-style: italic;
+}
+
+.fallback-subgroup .fallback-marker {
+    color: #d97706;
 }
 </style>

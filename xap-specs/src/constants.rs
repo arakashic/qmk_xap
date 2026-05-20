@@ -1,5 +1,6 @@
 pub mod keycode;
 mod keycode_decoder;
+pub mod keycode_display;
 pub mod lighting;
 
 use std::path::PathBuf;
@@ -8,14 +9,15 @@ use anyhow::Result;
 use serde::Serialize;
 use specta::Type;
 
-use self::keycode::{read_xap_keycode_catalog, KeyCode, XapKeyCodeCatalog, XapKeyCodeCategory};
+use self::keycode::{read_xap_keycode_catalog, KeyCode, XapKeyCodeCatalog};
+use self::keycode_display::KeycodeView;
 use self::lighting::{read_xap_lighting_effects, LightingEffects};
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct XapConstants {
     pub keycode_version: String,
     pub keycode_versions: Vec<String>,
-    pub keycodes: Vec<XapKeyCodeCategory>,
+    pub keycode_view: KeycodeView,
     pub rgblight_modes: LightingEffects,
     pub rgb_matrix_modes: LightingEffects,
     pub led_matrix_modes: LightingEffects,
@@ -31,7 +33,7 @@ impl XapConstants {
         Ok(Self {
             keycode_version: keycode_catalog.latest.clone(),
             keycode_versions: keycode_catalog.versions.clone(),
-            keycodes: keycode_catalog.latest_keycodes(),
+            keycode_view: keycode_catalog.view_for_version(None),
             rgblight_modes: read_xap_lighting_effects(&specs_path, "rgblight")?,
             rgb_matrix_modes: read_xap_lighting_effects(&specs_path, "rgb_matrix")?,
             led_matrix_modes: read_xap_lighting_effects(&specs_path, "led_matrix")?,

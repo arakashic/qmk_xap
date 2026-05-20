@@ -1,0 +1,131 @@
+{
+    // Schema version of this remap file (independent of QMK keycode versions).
+    "version": "1",
+
+    // QMK keycode spec version this file is authored against. When the active
+    // catalog version differs, the GUI gets a raw fallback view (one tab per
+    // generated group) and none of these overrides apply.
+    "target_keycode_version": "0.0.8",
+
+    // Top-level tabs in display order. Each tab has one or more subgroups.
+    // Subgroup populators:
+    //   - `keys: [...]`: explicit list of key names from the target version.
+    //   - `from_group: "X"`: every catalog key whose generated group == X
+    //     and that hasn't already been claimed by an earlier subgroup.
+    // Hidden keys never land in normal subgroups; they always go to the
+    // synthesized "Hidden" tab.
+    "tabs": [
+        {
+            "id": "basic",
+            "label": "Basic",
+            "subgroups": [
+                // ANSI keyboard layout. The Vue component renders this
+                // subgroup specially when render_mode == "ansi".
+                {
+                    "id": "ansi",
+                    "label": "Standard",
+                    "render_mode": "ansi",
+                    "from_group": "basic"
+                },
+                {
+                    "id": "modifiers",
+                    "label": "Modifiers",
+                    "from_group": "modifiers"
+                },
+                {
+                    "id": "extended_f",
+                    "label": "Extended F-Keys",
+                    "keys": [
+                        "KC_F13", "KC_F14", "KC_F15", "KC_F16", "KC_F17", "KC_F18",
+                        "KC_F19", "KC_F20", "KC_F21", "KC_F22", "KC_F23", "KC_F24"
+                    ]
+                },
+                {
+                    "id": "non_us",
+                    "label": "Non-US",
+                    "keys": ["KC_NONUS_HASH", "KC_NONUS_BACKSLASH"]
+                },
+                {
+                    "id": "locking",
+                    "label": "Locking Keys",
+                    "keys": ["KC_LOCKING_CAPS_LOCK", "KC_LOCKING_NUM_LOCK", "KC_LOCKING_SCROLL_LOCK"]
+                },
+                {
+                    "id": "numpad_extras",
+                    "label": "Numpad Extras",
+                    "keys": ["KC_KP_EQUAL", "KC_KP_EQUAL_AS400", "KC_KP_COMMA"]
+                },
+                {
+                    "id": "commands",
+                    "label": "Commands",
+                    "keys": [
+                        "KC_KB_POWER", "KC_EXECUTE", "KC_HELP", "KC_MENU", "KC_SELECT", "KC_STOP",
+                        "KC_AGAIN", "KC_UNDO", "KC_CUT", "KC_COPY", "KC_PASTE", "KC_FIND",
+                        "KC_KB_MUTE", "KC_KB_VOLUME_UP", "KC_KB_VOLUME_DOWN",
+                        "KC_ALTERNATE_ERASE", "KC_SYSTEM_REQUEST", "KC_CANCEL", "KC_CLEAR",
+                        "KC_PRIOR", "KC_RETURN", "KC_SEPARATOR", "KC_OUT", "KC_OPER",
+                        "KC_CLEAR_AGAIN", "KC_CRSEL", "KC_EXSEL"
+                    ]
+                },
+                {
+                    "id": "international",
+                    "label": "International",
+                    "keys": [
+                        "KC_INTERNATIONAL_1", "KC_INTERNATIONAL_2", "KC_INTERNATIONAL_3",
+                        "KC_INTERNATIONAL_4", "KC_INTERNATIONAL_5", "KC_INTERNATIONAL_6",
+                        "KC_INTERNATIONAL_7", "KC_INTERNATIONAL_8", "KC_INTERNATIONAL_9",
+                        "KC_LANGUAGE_1", "KC_LANGUAGE_2", "KC_LANGUAGE_3", "KC_LANGUAGE_4",
+                        "KC_LANGUAGE_5", "KC_LANGUAGE_6", "KC_LANGUAGE_7", "KC_LANGUAGE_8",
+                        "KC_LANGUAGE_9"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "lighting",
+            "label": "Lighting",
+            "subgroups": [
+                { "id": "backlight",  "label": "Backlight",  "from_group": "backlight" },
+                { "id": "led_matrix", "label": "LED Matrix", "from_group": "led_matrix" },
+                { "id": "rgb",        "label": "RGB",        "from_group": "rgb" },
+                { "id": "rgb_matrix", "label": "RGB Matrix", "from_group": "rgb_matrix" },
+                { "id": "underglow",  "label": "Underglow",  "from_group": "underglow" }
+            ]
+        },
+        { "id": "media",                "label": "Media",                "subgroups": [{ "id": "media",                "from_group": "media" }] },
+        { "id": "mouse",                "label": "Mouse",                "subgroups": [{ "id": "mouse",                "from_group": "mouse" }] },
+        { "id": "system",               "label": "System",               "subgroups": [{ "id": "system",               "from_group": "system" }] },
+        { "id": "audio",                "label": "Audio",                "subgroups": [{ "id": "audio",                "from_group": "audio" }] },
+        { "id": "quantum",              "label": "Quantum",              "subgroups": [{ "id": "quantum",              "from_group": "quantum" }] },
+        { "id": "magic",                "label": "Magic",                "subgroups": [{ "id": "magic",                "from_group": "magic" }] },
+        { "id": "macro",                "label": "Macro",                "subgroups": [{ "id": "macro",                "from_group": "macro" }] },
+        { "id": "midi",                 "label": "MIDI",                 "subgroups": [{ "id": "midi",                 "from_group": "midi" }] },
+        { "id": "joystick",             "label": "Joystick",             "subgroups": [{ "id": "joystick",             "from_group": "joystick" }] },
+        { "id": "programmable_button",  "label": "Programmable",         "subgroups": [{ "id": "programmable_button",  "from_group": "programmable_button" }] },
+        { "id": "sequencer",            "label": "Sequencer",            "subgroups": [{ "id": "sequencer",            "from_group": "sequencer" }] },
+        { "id": "steno",                "label": "Steno",                "subgroups": [{ "id": "steno",                "from_group": "steno" }] },
+        { "id": "swap_hands",           "label": "Swap Hands",           "subgroups": [{ "id": "swap_hands",           "from_group": "swap_hands" }] },
+        { "id": "connection",           "label": "Connection",           "subgroups": [{ "id": "connection",           "from_group": "connection" }] },
+        { "id": "kb",                   "label": "Keyboard",             "subgroups": [{ "id": "kb",                   "from_group": "kb" }] },
+        { "id": "user",                 "label": "User",                 "subgroups": [{ "id": "user",                 "from_group": "user" }] },
+        { "id": "internal",             "label": "Internal",             "subgroups": [{ "id": "internal",             "from_group": "internal" }] }
+    ],
+
+    // Per-key overrides. Keys are exact `key` field names from the target
+    // version's generated hjson.
+    "keycodes": {
+        // Hidden placeholders that bloat the picker when shown inline.
+        // Still selectable from the synthesized "Hidden" tab; the keymap
+        // continues to render them with their proper label.
+        "KC_NO":          { "hidden": true },
+        "KC_TRANSPARENT": { "hidden": true },
+
+        // Example label override (the generated label is just "Reset").
+        "QK_BOOTLOADER":  { "label": "Bootloader", "description": "Reset the keyboard into bootloader mode for flashing." },
+
+        // Example description-only entries.
+        "KC_A":      { "description": "Sends 'a' (lowercase) or 'A' with Shift held." },
+        "KC_ENTER":  { "description": "Sends an enter/return keystroke." },
+        "KC_ESCAPE": { "description": "Sends the escape keystroke." }
+    }
+}

@@ -139,6 +139,7 @@ fn decoded(code: u16, label: String, group: &str) -> KeyCode {
         top: None,
         bottom: None,
         aliases: Vec::new(),
+        description: None,
     }
 }
 
@@ -160,6 +161,7 @@ fn decoded_split(
         top: Some(top),
         bottom: Some(bottom),
         aliases: Vec::new(),
+        description: None,
     }
 }
 
@@ -247,6 +249,7 @@ mod tests {
                 top: None,
                 bottom: None,
                 aliases: vec![],
+                description: None,
             },
         );
         m.insert(
@@ -259,6 +262,7 @@ mod tests {
                 top: None,
                 bottom: None,
                 aliases: vec![],
+                description: None,
             },
         );
         m.insert(
@@ -271,6 +275,7 @@ mod tests {
                 top: None,
                 bottom: None,
                 aliases: vec![],
+                description: None,
             },
         );
         m.insert(
@@ -283,6 +288,7 @@ mod tests {
                 top: None,
                 bottom: None,
                 aliases: vec![],
+                description: None,
             },
         );
         // Entry without a label, to exercise the KC_ stripping fallback.
@@ -296,6 +302,7 @@ mod tests {
                 top: None,
                 bottom: None,
                 aliases: vec![],
+                description: None,
             },
         );
         m

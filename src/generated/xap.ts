@@ -457,6 +457,21 @@ export type KeyCode = {
     top?: string | null
     bottom?: string | null
     aliases?: string[]
+    description?: string | null
+}
+export type KeycodeView = { tabs: KeycodeViewTab[] }
+export type KeycodeViewSubgroup = {
+    id: string
+    label: string | null
+    render_mode: string | null
+    is_fallback: boolean
+    codes: KeyCode[]
+}
+export type KeycodeViewTab = {
+    id: string
+    label: string
+    is_fallback: boolean
+    subgroups: KeycodeViewSubgroup[]
 }
 export type KeymapCapabilitiesFlags = number
 export type KeymapGetEncoderKeycodeArg = { layer: number; encoder: number; clockwise: number }
@@ -610,7 +625,7 @@ export type XapCapabilitiesFlags = number
 export type XapConstants = {
     keycode_version: string
     keycode_versions: string[]
-    keycodes: XapKeyCodeCategory[]
+    keycode_view: KeycodeView
     rgblight_modes: LightingEffects
     rgb_matrix_modes: LightingEffects
     led_matrix_modes: LightingEffects
@@ -635,7 +650,6 @@ export type XapEvent =
     | { kind: 'NewDevice'; data: { id: string } }
     | { kind: 'RemovedDevice'; data: { id: string } }
 export type XapInfo = { version: number }
-export type XapKeyCodeCategory = { name: string; codes: KeyCode[] }
 export type XapSecureStatus = 'Locked' | 'Unlocking' | 'Unlocked'
 export type XapSecureStatusResponse = number
 export type XapVersionResponse = number

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{read_dir, read_to_string},
     path::{Path, PathBuf},
 };
@@ -9,8 +9,14 @@ use serde::{de::Error, Deserialize, Deserializer, Serialize};
 use serde_with::{serde_as, skip_serializing_none, NoneAsEmptyString};
 use specta::Type;
 
+use super::keycode_display::{
+    apply_overrides, build_name_to_code, build_view_for_version, read_keycode_display,
+    KeycodeDisplay, KeycodeView,
+};
+
 const GENERATED_KEYCODES_PREFIX: &str = "keycodes_";
 const GENERATED_KEYCODES_SUFFIX: &str = ".generated.hjson";
+const KEYCODE_DISPLAY_FILE: &str = "keycode_display.hjson";
 
 #[serde_as]
 #[skip_serializing_none]
@@ -32,6 +38,9 @@ pub struct KeyCode {
     pub bottom: Option<String>,
     #[serde(default)]
     pub aliases: Vec<String>,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone, Type)]
@@ -52,6 +61,7 @@ impl KeyCode {
             top: None,
             bottom: None,
             aliases: vec![],
+            description: None,
         }
     }
 }
@@ -61,6 +71,7 @@ pub(crate) struct XapKeyCodeCatalog {
     pub latest: String,
     pub versions: Vec<String>,
     versions_by_name: HashMap<String, XapKeyCodeVersion>,
+    display: Option<KeycodeDisplay>,
 }
 
 impl XapKeyCodeCatalog {
@@ -74,6 +85,24 @@ impl XapKeyCodeCatalog {
             .or_else(|| self.versions_by_name.get(&self.latest))
             .map(|version| version.categories.clone())
             .unwrap_or_default()
+    }
+
+    pub fn view_for_version(&self, version: Option<&str>) -> KeycodeView {
+        let resolved = self
+            .resolve_version(version)
+            .and_then(|v| self.versions_by_name.get_key_value(v))
+            .or_else(|| self.versions_by_name.get_key_value(&self.latest));
+
+        match resolved {
+            Some((name, version)) => build_view_for_version(
+                self.display.as_ref(),
+                name,
+                &version.lookup,
+                &version.name_to_code,
+                &version.hidden,
+            ),
+            None => KeycodeView { tabs: vec![] },
+        }
     }
 
     pub fn get_keycode(&self, version: Option<&str>, code: u16) -> KeyCode {
@@ -123,6 +152,8 @@ impl XapKeyCodeCatalog {
 struct XapKeyCodeVersion {
     categories: Vec<XapKeyCodeCategory>,
     lookup: HashMap<u16, KeyCode>,
+    name_to_code: HashMap<String, u16>,
+    hidden: HashSet<u16>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -154,6 +185,7 @@ struct KeyCodes {
 }
 
 pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyCodeCatalog> {
+    let path = path.as_ref();
     let mut version_files = read_generated_keycode_files(path)?;
 
     if version_files.is_empty() {
@@ -162,16 +194,35 @@ pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyC
 
     version_files.sort_by(|lhs, rhs| compare_keycode_versions(&lhs.0, &rhs.0));
 
+    let display_path = path.join(KEYCODE_DISPLAY_FILE);
+    let display = if display_path.is_file() {
+        Some(read_keycode_display(&display_path)?)
+    } else {
+        None
+    };
+
     let mut versions = Vec::with_capacity(version_files.len());
     let mut versions_by_name = HashMap::new();
 
     for (_, file) in version_files {
         let raw_keycodes = read_to_string(file)?;
-        let keycodes: KeyCodes = deser_hjson::from_str(&raw_keycodes)?;
+        let mut keycodes: KeyCodes = deser_hjson::from_str(&raw_keycodes)?;
         let version = keycodes.version.clone();
 
+        let name_to_code = build_name_to_code(&keycodes.keycodes);
+        let hidden = match display.as_ref() {
+            Some(d) if d.target_keycode_version == version => {
+                apply_overrides(&mut keycodes.keycodes, d, &name_to_code)
+            }
+            _ => HashSet::new(),
+        };
+
+        let mut version_data: XapKeyCodeVersion = keycodes.into();
+        version_data.name_to_code = name_to_code;
+        version_data.hidden = hidden;
+
         versions.push(version.clone());
-        versions_by_name.insert(version, keycodes.into());
+        versions_by_name.insert(version, version_data);
     }
 
     let latest = versions
@@ -183,6 +234,7 @@ pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyC
         latest,
         versions,
         versions_by_name,
+        display,
     })
 }
 
@@ -225,13 +277,7 @@ impl From<KeyCodes> for XapKeyCodeVersion {
         let mut categories = lookup.iter().fold(
             HashMap::new(),
             |mut category: HashMap<String, Vec<KeyCode>>, (_, keycode)| {
-                let bucket = match keycode.group.as_deref() {
-                    // Modifier keys (KC_LSFT, KC_LCTL, ...) belong on the
-                    // QWERTY layout, so the picker groups them with basic.
-                    Some("modifiers") => "basic",
-                    Some(other) => other,
-                    None => "other",
-                };
+                let bucket = keycode.group.as_deref().unwrap_or("other");
                 category
                     .entry(bucket.to_owned())
                     .or_default()
@@ -251,7 +297,12 @@ impl From<KeyCodes> for XapKeyCodeVersion {
 
         categories.sort_by(|lhs, rhs| lhs.name.cmp(&rhs.name));
 
-        Self { categories, lookup }
+        Self {
+            categories,
+            lookup,
+            name_to_code: HashMap::new(),
+            hidden: HashSet::new(),
+        }
     }
 }
 
@@ -328,7 +379,8 @@ mod test {
                 label: None,
                 top: None,
                 bottom: None,
-                aliases: vec!["XXXXXXX".to_owned()]
+                aliases: vec!["XXXXXXX".to_owned()],
+                description: None,
             }
         );
 
@@ -341,7 +393,8 @@ mod test {
                 label: None,
                 top: None,
                 bottom: None,
-                aliases: vec!["_______".to_owned(), "KC_TRNS".to_owned()]
+                aliases: vec!["_______".to_owned(), "KC_TRNS".to_owned()],
+                description: None,
             }
         );
 
@@ -354,7 +407,8 @@ mod test {
                 label: Some("A".to_owned()),
                 top: None,
                 bottom: None,
-                aliases: vec![]
+                aliases: vec![],
+                description: None,
             }
         );
 
@@ -367,7 +421,8 @@ mod test {
                 label: Some("B".to_owned()),
                 top: None,
                 bottom: None,
-                aliases: vec![]
+                aliases: vec![],
+                description: None,
             }
         );
     }
@@ -457,6 +512,31 @@ mod test {
     }
 
     #[test]
+    pub fn shipped_assets_load_and_apply_overrides() {
+        let assets =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+        let catalog = read_xap_keycode_catalog(&assets).expect("failed to load shipped assets");
+        // KC_NO is marked hidden in keycode_display.hjson -> must be present in the Hidden tab.
+        let view = catalog.view_for_version(None);
+        let hidden_tab = view
+            .tabs
+            .iter()
+            .find(|t| t.id == "hidden")
+            .expect("hidden tab missing");
+        assert!(hidden_tab
+            .subgroups
+            .iter()
+            .flat_map(|s| s.codes.iter())
+            .any(|c| c.key == "KC_NO"));
+        // KC_A description override must reach the catalog lookup so the keymap renderer sees it.
+        let a = catalog.get_keycode(None, 0x0004);
+        assert!(a.description.is_some(), "KC_A description override missing");
+        // Modifiers must no longer be merged into basic at the catalog level.
+        let categories = catalog.latest_keycodes();
+        assert!(categories.iter().any(|c| c.name == "modifiers"));
+    }
+
+    #[test]
     pub fn custom_keycodes_use_hex_display_names() {
         assert_eq!(
             KeyCode::new_custom(0x000A),
@@ -467,7 +547,8 @@ mod test {
                 label: Some("0x000A".to_owned()),
                 top: None,
                 bottom: None,
-                aliases: vec![]
+                aliases: vec![],
+                description: None,
             }
         );
     }
