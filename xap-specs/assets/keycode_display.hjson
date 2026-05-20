@@ -20,17 +20,15 @@
             "label": "Basic",
             "subgroups": [
                 // ANSI keyboard layout. The Vue component renders this
-                // subgroup specially when render_mode == "ansi".
+                // subgroup specially when render_mode == "ansi". Modifier
+                // keycodes share this layout (left/right Shift, Ctrl, Alt,
+                // GUI all have ANSI slots), so they're pulled in here rather
+                // than living in a separate subgroup.
                 {
                     "id": "ansi",
                     "label": "Standard",
                     "render_mode": "ansi",
-                    "from_group": "basic"
-                },
-                {
-                    "id": "modifiers",
-                    "label": "Modifiers",
-                    "from_group": "modifiers"
+                    "from_groups": ["basic", "modifiers"]
                 },
                 {
                     "id": "extended_f",

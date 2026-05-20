@@ -540,6 +540,17 @@ mod test {
             .find(|s| s.id == "ansi")
             .expect("ansi subgroup missing");
         assert_eq!(ansi.render_mode.as_deref(), Some("ansi"));
+        // Modifier keys must render inside the ANSI keyboard layout, not in a
+        // separate subgroup or fallback tab.
+        assert!(ansi.codes.iter().any(|c| c.key == "KC_LEFT_SHIFT"));
+        assert!(
+            basic.subgroups.iter().all(|s| s.id != "modifiers"),
+            "modifiers subgroup should have been folded into ansi"
+        );
+        assert!(
+            !view.tabs.iter().any(|t| t.id == "modifiers"),
+            "modifiers should not appear as a fallback tab"
+        );
         // Overflow subgroups must claim their keys away from the ansi from_group sweep.
         let extended_f = basic
             .subgroups

@@ -38,7 +38,18 @@ pub struct SubgroupSpec {
     #[serde(default)]
     pub from_group: Option<String>,
     #[serde(default)]
+    pub from_groups: Vec<String>,
+    #[serde(default)]
     pub keys: Option<Vec<String>>,
+}
+
+impl SubgroupSpec {
+    fn iter_groups(&self) -> impl Iterator<Item = &str> {
+        self.from_group
+            .as_deref()
+            .into_iter()
+            .chain(self.from_groups.iter().map(String::as_str))
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -168,11 +179,16 @@ pub fn build_remapped_view(
                 }
             }
 
-            if let Some(group) = &sg.from_group {
+            let group_set: HashSet<&str> = sg.iter_groups().collect();
+            if !group_set.is_empty() {
                 let mut from_group: Vec<u16> = codes
                     .iter()
                     .filter_map(|(code, kc)| {
-                        if kc.group.as_deref() == Some(group.as_str())
+                        let in_group = kc
+                            .group
+                            .as_deref()
+                            .is_some_and(|g| group_set.contains(g));
+                        if in_group
                             && !hidden.contains(code)
                             && !claimed.contains(code)
                             && !seen_in_sg.contains(code)
@@ -504,6 +520,30 @@ mod test {
         let rest_codes: Vec<u16> = view.tabs[0].subgroups[1].codes.iter().map(|c| c.code).collect();
         assert_eq!(first_codes, vec![0x0004]);
         assert_eq!(rest_codes, vec![0x0005]);
+    }
+
+    #[test]
+    fn from_groups_unions_multiple_groups() {
+        let codes = fixture_codes();
+        let display = parse_display(
+            r#"{
+                "target_keycode_version": "0.0.8",
+                "tabs": [
+                    {
+                        "id": "basic", "label": "Basic",
+                        "subgroups": [
+                            { "id": "ansi", "from_groups": ["basic", "modifiers"] }
+                        ]
+                    }
+                ]
+            }"#,
+        );
+        let n2c = build_name_to_code(&codes);
+        let view = build_remapped_view(&display, &codes, &n2c, &HashSet::new());
+        let ansi_codes: Vec<u16> = view.tabs[0].subgroups[0].codes.iter().map(|c| c.code).collect();
+        assert_eq!(ansi_codes, vec![0x0004, 0x0005, 0x00E1]);
+        // No standalone modifiers fallback tab should appear since the modifier got claimed.
+        assert!(view.tabs.iter().all(|t| t.id != "modifiers"));
     }
 
     #[test]
