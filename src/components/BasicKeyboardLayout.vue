@@ -3,7 +3,7 @@
     import type { StyleValue } from 'vue'
     import type { KeyCode } from '@generated/xap'
 
-    const props = defineProps<{ codes: KeyCode[]; disabled: boolean }>()
+    const props = defineProps<{ codes: KeyCode[] }>()
     const emit = defineEmits<{ select: [code: number] }>()
 
     const UNIT = 4.75 // rem per keyboard unit — gives 4.5rem per 1u key (unit - 0.25rem gap)
@@ -172,22 +172,20 @@
                 :key="pos.key"
                 class="key-name-button absolute rounded-lg p-1 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
                 :class="{ 'opacity-30 cursor-default': code === null }"
-                :disabled="props.disabled || code === null || code.code === undefined"
+                :disabled="code === null || code.code === undefined"
                 :style="posToStyle(pos)"
                 @click="code?.code !== undefined && emit('select', code.code)"
             >
                 <span class="text-xs leading-tight">{{
                     code?.label ?? code?.key ?? pos.key
                 }}</span>
-                <q-tooltip v-if="props.disabled" icon="block" class="bg-red" style="white-space: nowrap">
-                    Device is locked
-                </q-tooltip>
                 <q-tooltip
-                    v-else-if="code?.description"
+                    v-if="code"
                     class="text-xs"
                     style="white-space: normal; max-width: 18rem"
                 >
-                    {{ code.description }}
+                    <div><b>{{ code.key }}</b></div>
+                    <div v-if="code.description">{{ code.description }}</div>
                 </q-tooltip>
             </button>
         </div>

@@ -12,7 +12,7 @@
         XapDeviceState,
     } from '@generated/xap'
     import { commands } from '@/utils/commands'
-    import { notifyError } from '@/utils/utils'
+    import { notifyDeviceLocked, notifyError } from '@/utils/utils'
     import BasicKeyboardLayout from '@/components/BasicKeyboardLayout.vue'
 
     const store = useXapDeviceStore()
@@ -37,7 +37,10 @@
         if (!device.value || !selectedLayout.value || !selectedKey.value) {
             return
         }
-        // attempt to set keycode
+        if (device.value.secure_status !== 'Unlocked') {
+            notifyDeviceLocked()
+            return
+        }
         const ok = await commands.remapKey(device.value.id, {
             layer: Number(selectedKey.value.z),
             row: Number(selectedKey.value.y),
@@ -182,6 +185,14 @@
                                 <span v-else>{{
                                     col!.key.code.label ?? col!.key.code.key ?? 'unknown'
                                 }}</span>
+                                <q-tooltip
+                                    v-if="col!.key.code.key"
+                                    class="text-xs"
+                                    style="white-space: normal; max-width: 18rem"
+                                >
+                                    <div><b>{{ col!.key.code.key }}</b></div>
+                                    <div v-if="col!.key.code.description">{{ col!.key.code.description }}</div>
+                                </q-tooltip>
                             </button>
                         </template>
                     </div>
@@ -231,33 +242,23 @@
                         <BasicKeyboardLayout
                             v-if="subgroup.render_mode === 'ansi'"
                             :codes="subgroup.codes"
-                            :disabled="device?.secure_status != 'Unlocked'"
                             @select="remapKey"
                         />
                         <div v-else class="flex flex-wrap gap-2">
                             <button
                                 v-for="code in subgroup.codes"
                                 :key="code.code"
-                                :disabled="device?.secure_status != 'Unlocked'"
                                 style="width: 4.5rem; height: 4.5rem"
                                 class="keycode-button key-name-button rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
                                 @click="remapKey(code.code!)"
                             >
                                 <span>{{ code.label ?? code.key }}</span>
                                 <q-tooltip
-                                    v-if="code.description"
                                     class="text-xs"
                                     style="white-space: normal; max-width: 18rem"
                                 >
-                                    {{ code.description }}
-                                </q-tooltip>
-                                <q-tooltip
-                                    v-else-if="device?.secure_status != 'Unlocked'"
-                                    icon="block"
-                                    class="bg-red"
-                                    style="white-space: nowrap"
-                                >
-                                    Device is locked
+                                    <div><b>{{ code.key }}</b></div>
+                                    <div v-if="code.description">{{ code.description }}</div>
                                 </q-tooltip>
                             </button>
                         </div>
