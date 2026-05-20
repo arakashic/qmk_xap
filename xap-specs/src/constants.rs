@@ -1,4 +1,5 @@
 pub mod keycode;
+mod keycode_decoder;
 pub mod lighting;
 
 use std::path::PathBuf;

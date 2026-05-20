@@ -69,12 +69,23 @@ impl XapKeyCodeCatalog {
     }
 
     pub fn get_keycode(&self, version: Option<&str>, code: u16) -> KeyCode {
-        self.resolve_version(version)
+        let version = self
+            .resolve_version(version)
             .and_then(|version| self.versions_by_name.get(version))
-            .or_else(|| self.versions_by_name.get(&self.latest))
-            .and_then(|version| version.lookup.get(&code))
-            .cloned()
-            .unwrap_or_else(|| KeyCode::new_custom(code))
+            .or_else(|| self.versions_by_name.get(&self.latest));
+
+        if let Some(version) = version {
+            if let Some(keycode) = version.lookup.get(&code) {
+                return keycode.clone();
+            }
+            if let Some(decoded) =
+                super::keycode_decoder::decode_parameterized(code, &version.lookup)
+            {
+                return decoded;
+            }
+        }
+
+        KeyCode::new_custom(code)
     }
 
     fn resolve_version(&self, requested: Option<&str>) -> Option<&str> {
