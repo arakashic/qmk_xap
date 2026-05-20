@@ -216,6 +216,7 @@
                                 v-if="device?.secure_status != 'Unlocked'"
                                 icon="block"
                                 class="bg-red"
+                                style="white-space: nowrap"
                             >
                                 Device is locked
                             </q-tooltip>

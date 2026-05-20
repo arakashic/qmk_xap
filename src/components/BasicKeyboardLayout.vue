@@ -233,7 +233,7 @@
                 <span class="text-xs leading-tight">{{
                     code?.label ?? code?.key ?? pos.key
                 }}</span>
-                <q-tooltip v-if="props.disabled" icon="block" class="bg-red">
+                <q-tooltip v-if="props.disabled" icon="block" class="bg-red" style="white-space: nowrap">
                     Device is locked
                 </q-tooltip>
             </button>
