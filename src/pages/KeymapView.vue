@@ -1,6 +1,6 @@
 <script setup lang="ts">
     import { storeToRefs } from 'pinia'
-    import { ref, watch, onMounted } from 'vue'
+    import { ref, watch, onMounted, computed } from 'vue'
     import type { Ref, StyleValue } from 'vue'
 
     import { useXapDeviceStore } from '@/utils/deviceStore'
@@ -24,6 +24,13 @@
     const selectedLayout: Ref<string | null> = ref(null)
     const xapConstants: Ref<XapConstants | null> = ref(null)
     const keymap: Ref<MappedKeymap | null> = ref(null)
+
+    const keycodeCategoryRows = computed(() => {
+        const cats = xapConstants.value?.keycodes ?? []
+        const sorted = [...cats].sort((a, b) => a.name.localeCompare(b.name))
+        const mid = Math.ceil(sorted.length / 2)
+        return [sorted.slice(0, mid), sorted.slice(mid)]
+    })
 
     async function remapKey(code: number) {
         if (!device.value || !selectedLayout.value || !selectedKey.value) {
@@ -173,14 +180,17 @@
             </q-tab-panels>
             <!-- Keycodes -->
             <q-tabs
+                v-for="(row, rowIdx) in keycodeCategoryRows"
+                :key="rowIdx"
                 v-model="keycodeTab"
                 class="text-primary"
                 align="left"
                 inline-label
                 outside-arrows
+                dense
             >
                 <q-tab
-                    v-for="category in xapConstants?.keycodes"
+                    v-for="category in row"
                     :key="category.name"
                     :label="category.name"
                     :name="category.name"
