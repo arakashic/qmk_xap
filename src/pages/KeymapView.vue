@@ -38,9 +38,9 @@
         }
         // attempt to set keycode
         const ok = await commands.remapKey(device.value.id, {
-            layer: selectedKey.value.z,
-            row: selectedKey.value.y,
-            column: selectedKey.value.x,
+            layer: Number(selectedKey.value.z),
+            row: Number(selectedKey.value.y),
+            column: Number(selectedKey.value.x),
             keycode: code,
         })
         switch (ok.status) {
@@ -157,7 +157,7 @@
             <!--   Keymap   -->
             <q-tab-panels v-model="layerTab">
                 <q-tab-panel
-                    :style="{ height: `${Math.max(keymap?.size.y ?? 2, 2) * 6}rem` }"
+                    :style="{ height: `${Math.max(Number(keymap?.size.y ?? 2), 2) * 6}rem` }"
                     v-for="(layer, layer_idx) in keymap?.keys"
                     :name="layer_idx"
                 >
