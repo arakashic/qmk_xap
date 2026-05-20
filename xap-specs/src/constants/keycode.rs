@@ -225,8 +225,15 @@ impl From<KeyCodes> for XapKeyCodeVersion {
         let mut categories = lookup.iter().fold(
             HashMap::new(),
             |mut category: HashMap<String, Vec<KeyCode>>, (_, keycode)| {
+                let bucket = match keycode.group.as_deref() {
+                    // Modifier keys (KC_LSFT, KC_LCTL, ...) belong on the
+                    // QWERTY layout, so the picker groups them with basic.
+                    Some("modifiers") => "basic",
+                    Some(other) => other,
+                    None => "other",
+                };
                 category
-                    .entry(keycode.group.clone().unwrap_or("other".to_owned()))
+                    .entry(bucket.to_owned())
                     .or_default()
                     .push(keycode.clone());
 
