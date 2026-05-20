@@ -207,7 +207,7 @@
                             v-for="code in category.codes"
                             :key="code.code"
                             :disabled="device?.secure_status != 'Unlocked'"
-                            style="width: 4.5rem; height: 4.5rem"
+                            style="width: 3.25rem; height: 3.25rem"
                             class="keycode-button key-name-button mr-2 mb-2 rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
                             @click="remapKey(code.code!)"
                         >

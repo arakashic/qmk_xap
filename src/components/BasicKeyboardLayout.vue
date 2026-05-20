@@ -256,7 +256,7 @@
                     v-for="code in group.codes"
                     :key="code.code"
                     :disabled="props.disabled || code.code === undefined"
-                    style="width: 4.5rem; height: 4.5rem"
+                    style="width: 3.25rem; height: 3.25rem"
                     class="keycode-button key-name-button rounded-lg p-2 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
                     @click="code.code !== undefined && emit('select', code.code)"
                 >
