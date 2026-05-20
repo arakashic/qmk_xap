@@ -166,11 +166,19 @@
                             <button
                                 v-for="col in row.filter((col) => col != null)"
                                 class="key-button key-name-button rounded-lg p-2 absolute align-middle text-black border-2 ring-4 ring-inset shadow-md"
-                                :class="applyKeySelection(col!.key.position)"
+                                :class="[
+                                    applyKeySelection(col!.key.position),
+                                    col!.key.code.top && col!.key.code.bottom ? 'split-key' : '',
+                                ]"
                                 :style="applyLayout(col!.layout)"
                                 @click="() => (selectedKey = col!.key.position)"
                             >
-                                <span>{{
+                                <template v-if="col!.key.code.top && col!.key.code.bottom">
+                                    <span class="split-top">{{ col!.key.code.top }}</span>
+                                    <span class="split-divider"></span>
+                                    <span class="split-bottom">{{ col!.key.code.bottom }}</span>
+                                </template>
+                                <span v-else>{{
                                     col!.key.code.label ?? col!.key.code.key ?? 'unknown'
                                 }}</span>
                             </button>
@@ -266,5 +274,30 @@
 .keycode-button:hover {
     background-color: rgba(0, 0, 0, 0.05);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.split-key {
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.25rem;
+}
+
+.split-top,
+.split-bottom {
+    font-size: 0.7rem;
+    line-height: 1;
+    width: 100%;
+}
+
+.split-bottom {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.split-divider {
+    width: 100%;
+    height: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.35);
+    margin: 0.1rem 0;
 }
 </style>

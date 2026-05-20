@@ -454,6 +454,8 @@ export type KeyCode = {
     key: string
     group?: string | null
     label?: string | null
+    top?: string | null
+    bottom?: string | null
     aliases?: string[]
 }
 export type KeymapCapabilitiesFlags = number

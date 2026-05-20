@@ -25,6 +25,12 @@ pub struct KeyCode {
     #[serde_as(as = "NoneAsEmptyString")]
     pub label: Option<String>,
     #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub top: Option<String>,
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub bottom: Option<String>,
+    #[serde(default)]
     pub aliases: Vec<String>,
 }
 
@@ -43,6 +49,8 @@ impl KeyCode {
             key: keycode.clone(),
             group: Some("USER-CUSTOM".to_owned()),
             label: Some(keycode),
+            top: None,
+            bottom: None,
             aliases: vec![],
         }
     }
@@ -311,6 +319,8 @@ mod test {
                 group: Some("internal".to_owned()),
                 key: "KC_NO".to_owned(),
                 label: None,
+                top: None,
+                bottom: None,
                 aliases: vec!["XXXXXXX".to_owned()]
             }
         );
@@ -322,6 +332,8 @@ mod test {
                 group: Some("internal".to_owned()),
                 key: "KC_TRANSPARENT".to_owned(),
                 label: None,
+                top: None,
+                bottom: None,
                 aliases: vec!["_______".to_owned(), "KC_TRNS".to_owned()]
             }
         );
@@ -333,6 +345,8 @@ mod test {
                 group: Some("basic".to_owned()),
                 key: "KC_A".to_owned(),
                 label: Some("A".to_owned()),
+                top: None,
+                bottom: None,
                 aliases: vec![]
             }
         );
@@ -344,6 +358,8 @@ mod test {
                 group: Some("basic".to_owned()),
                 key: "KC_B".to_owned(),
                 label: Some("B".to_owned()),
+                top: None,
+                bottom: None,
                 aliases: vec![]
             }
         );
@@ -442,6 +458,8 @@ mod test {
                 group: Some("USER-CUSTOM".to_owned()),
                 key: "0x000A".to_owned(),
                 label: Some("0x000A".to_owned()),
+                top: None,
+                bottom: None,
                 aliases: vec![]
             }
         );

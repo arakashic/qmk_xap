@@ -83,9 +83,12 @@ fn one_shot_mod(code: u16) -> KeyCode {
 fn layer_mod(code: u16) -> KeyCode {
     let layer = (code >> 5) & 0x0F;
     let mods = (code & 0x1F) as u8;
-    decoded(
+    let mods_label = mods_name(mods);
+    decoded_split(
         code,
-        format!("LM({layer}, {})", mods_name(mods)),
+        format!("LM({layer}, {mods_label})"),
+        format!("LM({layer})"),
+        mods_label,
         "layer_mod",
     )
 }
@@ -93,9 +96,12 @@ fn layer_mod(code: u16) -> KeyCode {
 fn layer_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let layer = (code >> 8) & 0x0F;
     let basic = (code & 0xFF) as u8;
-    decoded(
+    let kc = basic_kc_label(basic, lookup);
+    decoded_split(
         code,
-        format!("LT({layer}, {})", basic_kc_label(basic, lookup)),
+        format!("LT({layer}, {kc})"),
+        format!("LT({layer})"),
+        kc,
         "layer_tap",
     )
 }
@@ -104,12 +110,12 @@ fn mod_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let mods = ((code >> 8) & 0x1F) as u8;
     let basic = (code & 0xFF) as u8;
     let kc = basic_kc_label(basic, lookup);
-    let label = if mods == 0 {
-        format!("MT(0, {kc})")
-    } else {
-        format!("{}_T({kc})", mods_name(mods))
-    };
-    decoded(code, label, "mod_tap")
+    if mods == 0 {
+        // Degenerate MT(0, kc) - no meaningful hold action, render as single label.
+        return decoded(code, format!("MT(0, {kc})"), "mod_tap");
+    }
+    let top = format!("{}_T", mods_name(mods));
+    decoded_split(code, format!("{top}({kc})"), top, kc, "mod_tap")
 }
 
 fn qk_mods(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
@@ -130,6 +136,29 @@ fn decoded(code: u16, label: String, group: &str) -> KeyCode {
         key: label.clone(),
         group: Some(group.to_owned()),
         label: Some(label),
+        top: None,
+        bottom: None,
+        aliases: Vec::new(),
+    }
+}
+
+/// Decoded keycode whose visual representation splits into an upper "hold"
+/// label and a lower "tap" / "secondary" label. `label` keeps the combined
+/// macro form (e.g. `LSFT_T(A)`) for use in tooltips and the picker palette.
+fn decoded_split(
+    code: u16,
+    label: String,
+    top: String,
+    bottom: String,
+    group: &str,
+) -> KeyCode {
+    KeyCode {
+        code,
+        key: label.clone(),
+        group: Some(group.to_owned()),
+        label: Some(label),
+        top: Some(top),
+        bottom: Some(bottom),
         aliases: Vec::new(),
     }
 }
@@ -215,6 +244,8 @@ mod tests {
                 key: "KC_TRANSPARENT".into(),
                 group: Some("internal".into()),
                 label: Some("Transparent".into()),
+                top: None,
+                bottom: None,
                 aliases: vec![],
             },
         );
@@ -225,6 +256,8 @@ mod tests {
                 key: "KC_A".into(),
                 group: Some("basic".into()),
                 label: Some("A".into()),
+                top: None,
+                bottom: None,
                 aliases: vec![],
             },
         );
@@ -235,6 +268,8 @@ mod tests {
                 key: "KC_F".into(),
                 group: Some("basic".into()),
                 label: Some("F".into()),
+                top: None,
+                bottom: None,
                 aliases: vec![],
             },
         );
@@ -245,6 +280,8 @@ mod tests {
                 key: "KC_SPACE".into(),
                 group: Some("basic".into()),
                 label: Some("Space".into()),
+                top: None,
+                bottom: None,
                 aliases: vec![],
             },
         );
@@ -256,6 +293,8 @@ mod tests {
                 key: "KC_QUIRKY".into(),
                 group: Some("basic".into()),
                 label: None,
+                top: None,
+                bottom: None,
                 aliases: vec![],
             },
         );
@@ -400,5 +439,60 @@ mod tests {
         assert_eq!(kc.group.as_deref(), Some("layer_tap"));
         let kc = decode(0x5002);
         assert_eq!(kc.group.as_deref(), Some("layer_mod"));
+    }
+
+    #[test]
+    fn mod_tap_emits_split_fields() {
+        // LSFT_T(KC_A) -> top "LSFT_T", bottom "A"
+        let kc = decode(0x2204);
+        assert_eq!(kc.top.as_deref(), Some("LSFT_T"));
+        assert_eq!(kc.bottom.as_deref(), Some("A"));
+        // HYPR_T(KC_F) -> top "HYPR_T", bottom "F"
+        let kc = decode(0x2F09);
+        assert_eq!(kc.top.as_deref(), Some("HYPR_T"));
+        assert_eq!(kc.bottom.as_deref(), Some("F"));
+        // RCAG_T(KC_A) -> top "RCAG_T", bottom "A"
+        let kc = decode(0x2D04 | 0x1000);
+        assert_eq!(kc.top.as_deref(), Some("RCAG_T"));
+        assert_eq!(kc.bottom.as_deref(), Some("A"));
+        // Degenerate MT(0, kc) keeps single-label form: no split.
+        let kc = decode(0x2004);
+        assert_eq!(kc.label.as_deref(), Some("MT(0, A)"));
+        assert!(kc.top.is_none());
+        assert!(kc.bottom.is_none());
+    }
+
+    #[test]
+    fn layer_tap_emits_split_fields() {
+        // LT(0, KC_A) -> top "LT(0)", bottom "A"
+        let kc = decode(0x4004);
+        assert_eq!(kc.top.as_deref(), Some("LT(0)"));
+        assert_eq!(kc.bottom.as_deref(), Some("A"));
+        // LT(15, KC_SPACE) -> top "LT(15)", bottom "Space"
+        let kc = decode(0x4F2C);
+        assert_eq!(kc.top.as_deref(), Some("LT(15)"));
+        assert_eq!(kc.bottom.as_deref(), Some("Space"));
+    }
+
+    #[test]
+    fn layer_mod_emits_split_fields() {
+        // LM(0, LSFT) -> top "LM(0)", bottom "LSFT"
+        let kc = decode(0x5002);
+        assert_eq!(kc.top.as_deref(), Some("LM(0)"));
+        assert_eq!(kc.bottom.as_deref(), Some("LSFT"));
+        // LM(3, LCS) -> top "LM(3)", bottom "LCS"
+        let kc = decode(0x5063);
+        assert_eq!(kc.top.as_deref(), Some("LM(3)"));
+        assert_eq!(kc.bottom.as_deref(), Some("LCS"));
+    }
+
+    #[test]
+    fn single_label_decodings_have_no_split() {
+        // Single-arg layer ops, OSM, QK_MODS - all unsplit.
+        for code in [0x5221_u16, 0x5202, 0x5240, 0x5260, 0x5283, 0x52A2, 0x52C2, 0x52E0, 0x0204, 0x0F04] {
+            let kc = decode(code);
+            assert!(kc.top.is_none(), "{code:#06X} unexpectedly has top: {:?}", kc.top);
+            assert!(kc.bottom.is_none(), "{code:#06X} unexpectedly has bottom: {:?}", kc.bottom);
+        }
     }
 }
