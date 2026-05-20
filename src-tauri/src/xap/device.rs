@@ -342,10 +342,7 @@ impl XapDevice {
             board_ids,
             manufacturer,
             product_name,
-            hardware_id: format!(
-                "{}{}{}{}",
-                hardware_id[0], hardware_id[1], hardware_id[2], hardware_id[3]
-            ),
+            hardware_id: format_hardware_id(hardware_id),
             jump_to_bootloader_enabled: qmk_caps.contains(QmkCapabilitiesFlags::JumpToBootloader),
             eeprom_reset_enabled: qmk_caps.contains(QmkCapabilitiesFlags::ReinitializeEeprom),
         };
@@ -592,5 +589,26 @@ impl XapDevice {
 
     pub fn secure_status(&self) -> &XapSecureStatus {
         &self.state.secure_status
+    }
+}
+
+fn format_hardware_id(hardware_id: [u32; 4]) -> String {
+    hardware_id
+        .iter()
+        .map(|word| format!("0x{word:08X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn hardware_id_uses_four_hex_words() {
+        assert_eq!(
+            format_hardware_id([0x00000001, 0x0000000A, 0x000000FF, 0x12345678]),
+            "0x00000001 0x0000000A 0x000000FF 0x12345678"
+        );
     }
 }

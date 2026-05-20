@@ -34,11 +34,13 @@ pub struct XapKeyCodeCategory {
 
 impl KeyCode {
     pub fn new_custom(code: u16) -> Self {
+        let keycode = format!("0x{code:04X}");
+
         Self {
             code,
-            key: format!("USER-CUSTOM-{code}"),
+            key: keycode.clone(),
             group: Some("USER-CUSTOM".to_owned()),
-            label: Some(format!("{code}")),
+            label: Some(keycode),
             aliases: vec![],
         }
     }
@@ -198,6 +200,20 @@ mod test {
                 group: Some("basic".to_owned()),
                 key: "KC_B".to_owned(),
                 label: Some("B".to_owned()),
+                aliases: vec![]
+            }
+        );
+    }
+
+    #[test]
+    pub fn custom_keycodes_use_hex_display_names() {
+        assert_eq!(
+            KeyCode::new_custom(0x000A),
+            KeyCode {
+                code: 0x000A,
+                group: Some("USER-CUSTOM".to_owned()),
+                key: "0x000A".to_owned(),
+                label: Some("0x000A".to_owned()),
                 aliases: vec![]
             }
         );

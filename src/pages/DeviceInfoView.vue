@@ -4,6 +4,7 @@
     import { useXapDeviceStore } from '@/utils/deviceStore'
     import { XapSecureStatus, XapDeviceState } from '@generated/xap'
     import { commands } from '@/utils/commands'
+    import { formatBcdVersion } from '@/utils/format'
     import type { Ref } from 'vue'
 
     const store = useXapDeviceStore()
@@ -65,14 +66,14 @@
             <q-field filled label="XAP Version" stack-label>
                 <template #control>
                     <div class="self-center full-width no-outline" tabindex="0">
-                        {{ device?.info?.xap.version }}
+                        {{ formatBcdVersion(device?.info?.xap.version) }}
                     </div>
                 </template>
             </q-field>
             <q-field filled label="QMK Version" stack-label>
                 <template #control>
                     <div class="self-center full-width no-outline" tabindex="0">
-                        {{ device?.info?.qmk.version }}
+                        {{ formatBcdVersion(device?.info?.qmk.version) }}
                     </div>
                 </template>
             </q-field>
