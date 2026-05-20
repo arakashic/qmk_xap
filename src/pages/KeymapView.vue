@@ -278,26 +278,27 @@
 
 .split-key {
     flex-direction: column;
-    justify-content: space-between;
-    padding: 0.25rem;
 }
 
-.split-top,
-.split-bottom {
+.key-name-button .split-top,
+.key-name-button .split-bottom {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     font-size: 0.7rem;
     line-height: 1;
-    width: 100%;
 }
 
-.split-bottom {
+.key-name-button .split-bottom {
     font-size: 0.85rem;
     font-weight: 600;
 }
 
 .split-divider {
+    flex: 0 0 auto;
     width: 100%;
-    height: 0;
     border-top: 1px solid rgba(0, 0, 0, 0.35);
-    margin: 0.1rem 0;
 }
 </style>
