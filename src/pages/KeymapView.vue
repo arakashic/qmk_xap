@@ -25,7 +25,7 @@
     const xapConstants: Ref<XapConstants | null> = ref(null)
     const keymap: Ref<MappedKeymap | null> = ref(null)
 
-    const LIGHTING_SUBGROUPS = ['backlight', 'led_matrix', 'rgb', 'rgb_matrix']
+    const LIGHTING_SUBGROUPS = ['backlight', 'led_matrix', 'rgb', 'rgb_matrix', 'underglow']
 
     const lightingCategories = computed(() => {
         const cats = xapConstants.value?.keycodes ?? []
