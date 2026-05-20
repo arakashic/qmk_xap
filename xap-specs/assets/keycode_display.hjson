@@ -90,23 +90,41 @@
                 { "id": "underglow",  "label": "Underglow",  "from_group": "underglow" }
             ]
         },
-        { "id": "media",                "label": "Media",                "subgroups": [{ "id": "media",                "from_group": "media" }] },
-        { "id": "mouse",                "label": "Mouse",                "subgroups": [{ "id": "mouse",                "from_group": "mouse" }] },
-        { "id": "system",               "label": "System",               "subgroups": [{ "id": "system",               "from_group": "system" }] },
-        { "id": "audio",                "label": "Audio",                "subgroups": [{ "id": "audio",                "from_group": "audio" }] },
-        { "id": "quantum",              "label": "Quantum",              "subgroups": [{ "id": "quantum",              "from_group": "quantum" }] },
-        { "id": "magic",                "label": "Magic",                "subgroups": [{ "id": "magic",                "from_group": "magic" }] },
-        { "id": "macro",                "label": "Macro",                "subgroups": [{ "id": "macro",                "from_group": "macro" }] },
-        { "id": "midi",                 "label": "MIDI",                 "subgroups": [{ "id": "midi",                 "from_group": "midi" }] },
-        { "id": "joystick",             "label": "Joystick",             "subgroups": [{ "id": "joystick",             "from_group": "joystick" }] },
-        { "id": "programmable_button",  "label": "Programmable",         "subgroups": [{ "id": "programmable_button",  "from_group": "programmable_button" }] },
-        { "id": "sequencer",            "label": "Sequencer",            "subgroups": [{ "id": "sequencer",            "from_group": "sequencer" }] },
-        { "id": "steno",                "label": "Steno",                "subgroups": [{ "id": "steno",                "from_group": "steno" }] },
-        { "id": "swap_hands",           "label": "Swap Hands",           "subgroups": [{ "id": "swap_hands",           "from_group": "swap_hands" }] },
-        { "id": "connection",           "label": "Connection",           "subgroups": [{ "id": "connection",           "from_group": "connection" }] },
-        { "id": "kb",                   "label": "Keyboard",             "subgroups": [{ "id": "kb",                   "from_group": "kb" }] },
-        { "id": "user",                 "label": "User",                 "subgroups": [{ "id": "user",                 "from_group": "user" }] },
-        { "id": "internal",             "label": "Internal",             "subgroups": [{ "id": "internal",             "from_group": "internal" }] }
+        {
+            "id": "system",
+            "label": "System",
+            "subgroups": [
+                { "id": "system", "label": "System", "from_group": "system" },
+                { "id": "media",  "label": "Media",  "from_group": "media" }
+            ]
+        },
+        { "id": "mouse", "label": "Mouse", "subgroups": [{ "id": "mouse", "from_group": "mouse" }] },
+        {
+            "id": "qmk",
+            "label": "QMK",
+            "subgroups": [
+                { "id": "quantum",    "label": "Quantum",    "from_group": "quantum" },
+                { "id": "magic",      "label": "Magic",      "from_group": "magic" },
+                { "id": "swap_hands", "label": "Swap Hands", "from_group": "swap_hands" },
+                { "id": "connection", "label": "Connection", "from_group": "connection" },
+                { "id": "kb",         "label": "Keyboard",   "from_group": "kb" },
+                { "id": "audio",      "label": "Audio",      "from_group": "audio" }
+            ]
+        },
+        { "id": "macro", "label": "Macro", "subgroups": [{ "id": "macro", "from_group": "macro" }] },
+        {
+            "id": "music",
+            "label": "MIDI",
+            "subgroups": [
+                { "id": "midi",      "label": "MIDI",      "from_group": "midi" },
+                { "id": "sequencer", "label": "Sequencer", "from_group": "sequencer" }
+            ]
+        },
+        { "id": "joystick",            "label": "Joystick",            "subgroups": [{ "id": "joystick",            "from_group": "joystick" }] },
+        { "id": "programmable_button", "label": "Programmable",        "subgroups": [{ "id": "programmable_button", "from_group": "programmable_button" }] },
+        { "id": "steno",               "label": "Steno",               "subgroups": [{ "id": "steno",               "from_group": "steno" }] },
+        { "id": "user",                "label": "User",                "subgroups": [{ "id": "user",                "from_group": "user" }] },
+        { "id": "internal",            "label": "Internal",            "subgroups": [{ "id": "internal",            "from_group": "internal" }] }
     ],
 
     // Per-key overrides. Keys are exact `key` field names from the target
@@ -336,7 +354,7 @@
         "KC_KP_DOT":         { "description": "Keypad . and Delete" },
         "KC_KP_EQUAL":       { "description": "Keypad =" },
         "KC_KP_COMMA":       { "description": "Keypad ," },
-        "KC_KP_EQUAL_AS400": { "description": "Keypad = on AS/400 keyboards" },
+        "KC_KP_EQUAL_AS400": { "hidden": true, "description": "Keypad = on AS/400 keyboards" },
 
         // Magic keycodes (qmk_firmware/docs/keycodes_magic.md)
         "QK_MAGIC_SWAP_CONTROL_CAPS_LOCK":     { "description": "Swap Caps Lock and Left Control" },
