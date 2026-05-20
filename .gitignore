@@ -24,3 +24,6 @@ target
 *.njsproj
 *.sln
 *.sw?
+
+# reference to qmk firmware code
+qmk_firmware_ref
