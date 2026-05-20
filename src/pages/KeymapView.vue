@@ -27,12 +27,6 @@
 
     const keycodeTabs = computed(() => xapConstants.value?.keycode_view?.tabs ?? [])
 
-    const keycodeTabRows = computed(() => {
-        const tabs = keycodeTabs.value
-        const mid = Math.ceil(tabs.length / 2)
-        return [tabs.slice(0, mid), tabs.slice(mid)]
-    })
-
     async function remapKey(code: number) {
         if (!device.value || !selectedLayout.value || !selectedKey.value) {
             return
@@ -200,8 +194,6 @@
             </q-tab-panels>
             <!-- Keycodes -->
             <q-tabs
-                v-for="(row, rowIdx) in keycodeTabRows"
-                :key="rowIdx"
                 v-model="keycodeTab"
                 class="text-primary"
                 align="left"
@@ -210,7 +202,7 @@
                 dense
             >
                 <q-tab
-                    v-for="tab in row"
+                    v-for="tab in keycodeTabs"
                     :key="tab.id"
                     :name="tab.id"
                     :class="{ 'fallback-tab': tab.is_fallback }"
@@ -244,7 +236,7 @@
                             :codes="subgroup.codes"
                             @select="remapKey"
                         />
-                        <div v-else class="flex flex-wrap gap-2">
+                        <div v-else class="keycode-grid">
                             <button
                                 v-for="code in subgroup.codes"
                                 :key="code.code"
@@ -323,6 +315,13 @@
     flex: 0 0 auto;
     width: 100%;
     border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.keycode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 4.5rem);
+    gap: 0.5rem;
+    max-width: calc(16 * 4.5rem + 15 * 0.5rem);
 }
 
 .fallback-tab {
