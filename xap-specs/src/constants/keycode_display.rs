@@ -120,11 +120,35 @@ pub fn build_remapped_view(
     hidden: &HashSet<u16>,
 ) -> KeycodeView {
     let mut tabs = Vec::new();
-    let mut claimed: HashSet<u16> = hidden.clone();
 
-    for tab in &display.tabs {
+    // Pre-pass: every code mentioned in any explicit `keys: [...]` belongs to
+    // its first-listed subgroup, regardless of declaration order. This lets us
+    // keep `ansi` (`from_group: "basic"`) at the top of the basic tab while the
+    // overflow subgroups still claim their keys.
+    let mut explicit_owner: HashMap<u16, (usize, usize)> = HashMap::new();
+    for (ti, tab) in display.tabs.iter().enumerate() {
+        for (si, sg) in tab.subgroups.iter().enumerate() {
+            let Some(keys) = sg.keys.as_ref() else {
+                continue;
+            };
+            for name in keys {
+                let Some(&code) = name_to_code.get(name) else {
+                    continue;
+                };
+                if hidden.contains(&code) {
+                    continue;
+                }
+                explicit_owner.entry(code).or_insert((ti, si));
+            }
+        }
+    }
+
+    let mut claimed: HashSet<u16> = hidden.clone();
+    claimed.extend(explicit_owner.keys().copied());
+
+    for (ti, tab) in display.tabs.iter().enumerate() {
         let mut view_subgroups = Vec::new();
-        for sg in &tab.subgroups {
+        for (si, sg) in tab.subgroups.iter().enumerate() {
             let mut ordered: Vec<u16> = Vec::new();
             let mut seen_in_sg: HashSet<u16> = HashSet::new();
 
@@ -137,13 +161,10 @@ pub fn build_remapped_view(
                         );
                         continue;
                     };
-                    if hidden.contains(&code)
-                        || claimed.contains(&code)
-                        || !seen_in_sg.insert(code)
-                    {
-                        continue;
+                    // Only emit if this subgroup is the first owner of the code.
+                    if explicit_owner.get(&code) == Some(&(ti, si)) && seen_in_sg.insert(code) {
+                        ordered.push(code);
                     }
-                    ordered.push(code);
                 }
             }
 
@@ -483,6 +504,31 @@ mod test {
         let rest_codes: Vec<u16> = view.tabs[0].subgroups[1].codes.iter().map(|c| c.code).collect();
         assert_eq!(first_codes, vec![0x0004]);
         assert_eq!(rest_codes, vec![0x0005]);
+    }
+
+    #[test]
+    fn keys_claim_wins_over_earlier_from_group() {
+        let codes = fixture_codes();
+        let display = parse_display(
+            r#"{
+                "target_keycode_version": "0.0.8",
+                "tabs": [
+                    {
+                        "id": "basic", "label": "Basic",
+                        "subgroups": [
+                            { "id": "ansi", "from_group": "basic" },
+                            { "id": "picked_letter", "keys": ["KC_A"] }
+                        ]
+                    }
+                ]
+            }"#,
+        );
+        let n2c = build_name_to_code(&codes);
+        let view = build_remapped_view(&display, &codes, &n2c, &HashSet::new());
+        let ansi_codes: Vec<u16> = view.tabs[0].subgroups[0].codes.iter().map(|c| c.code).collect();
+        let picked_codes: Vec<u16> = view.tabs[0].subgroups[1].codes.iter().map(|c| c.code).collect();
+        assert_eq!(ansi_codes, vec![0x0005], "explicit subgroup must steal KC_A from earlier from_group");
+        assert_eq!(picked_codes, vec![0x0004]);
     }
 
     #[test]

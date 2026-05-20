@@ -540,6 +540,17 @@ mod test {
             .find(|s| s.id == "ansi")
             .expect("ansi subgroup missing");
         assert_eq!(ansi.render_mode.as_deref(), Some("ansi"));
+        // Overflow subgroups must claim their keys away from the ansi from_group sweep.
+        let extended_f = basic
+            .subgroups
+            .iter()
+            .find(|s| s.id == "extended_f")
+            .expect("extended_f subgroup missing");
+        assert!(extended_f.codes.iter().any(|c| c.key == "KC_F13"));
+        assert!(
+            ansi.codes.iter().all(|c| c.key != "KC_F13"),
+            "KC_F13 leaked into ansi subgroup"
+        );
         // KC_NO is marked hidden in keycode_display.hjson -> must be present in the Hidden tab.
         let hidden_tab = view
             .tabs
