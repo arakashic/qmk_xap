@@ -196,8 +196,18 @@ pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyC
 
     let display_path = path.join(KEYCODE_DISPLAY_FILE);
     let display = if display_path.is_file() {
-        Some(read_keycode_display(&display_path)?)
+        let d = read_keycode_display(&display_path)?;
+        log::info!(
+            "loaded {} (target keycode version: {})",
+            display_path.display(),
+            d.target_keycode_version
+        );
+        Some(d)
     } else {
+        log::warn!(
+            "keycode display file not found at {}; picker will use raw fallback view",
+            display_path.display()
+        );
         None
     };
 
@@ -516,8 +526,21 @@ mod test {
         let assets =
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
         let catalog = read_xap_keycode_catalog(&assets).expect("failed to load shipped assets");
-        // KC_NO is marked hidden in keycode_display.hjson -> must be present in the Hidden tab.
         let view = catalog.view_for_version(None);
+        // Declared tabs must not be flagged as fallback when the remap matches.
+        let basic = view
+            .tabs
+            .iter()
+            .find(|t| t.id == "basic")
+            .expect("basic tab missing");
+        assert!(!basic.is_fallback, "basic tab unexpectedly marked fallback");
+        let ansi = basic
+            .subgroups
+            .iter()
+            .find(|s| s.id == "ansi")
+            .expect("ansi subgroup missing");
+        assert_eq!(ansi.render_mode.as_deref(), Some("ansi"));
+        // KC_NO is marked hidden in keycode_display.hjson -> must be present in the Hidden tab.
         let hidden_tab = view
             .tabs
             .iter()
