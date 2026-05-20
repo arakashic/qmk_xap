@@ -205,21 +205,13 @@
     )
 
     function posToStyle(pos: KeyPos): StyleValue {
-        const top = `${pos.y * UNIT}rem`
-        const left = `${pos.x * UNIT}rem`
-        const width = `${pos.w * UNIT - 0.25}rem`
-        const height = `${pos.h * UNIT - 0.25}rem`
         return {
-            '--key-top': top,
-            '--key-left': left,
-            '--key-width': width,
-            '--key-height': height,
             position: 'absolute',
-            top,
-            left,
-            width,
-            height,
-        } as Record<string, string>
+            top: `${pos.y * UNIT}rem`,
+            left: `${pos.x * UNIT}rem`,
+            width: `${pos.w * UNIT - 0.25}rem`,
+            height: `${pos.h * UNIT - 0.25}rem`,
+        }
     }
 </script>
 
@@ -232,7 +224,7 @@
             <button
                 v-for="{ pos, code } in layoutKeys"
                 :key="pos.key"
-                class="key-button key-name-button absolute rounded-lg p-1 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
+                class="key-name-button absolute rounded-lg p-1 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
                 :class="{ 'opacity-30 cursor-default': code === null }"
                 :disabled="props.disabled || code === null || code.code === undefined"
                 :style="posToStyle(pos)"
@@ -241,6 +233,9 @@
                 <span class="text-xs leading-tight">{{
                     code?.label ?? code?.key ?? pos.key
                 }}</span>
+                <q-tooltip v-if="props.disabled" icon="block" class="bg-red">
+                    Device is locked
+                </q-tooltip>
             </button>
         </div>
         <div
@@ -285,12 +280,6 @@
     max-width: 100%;
 }
 
-.key-button:hover {
-    width: calc(var(--key-width) + 0.5rem) !important;
-    height: calc(var(--key-height) + 0.5rem) !important;
-    top: calc(var(--key-top) - 0.25rem) !important;
-    left: calc(var(--key-left) - 0.25rem) !important;
-}
 
 .keycode-button:hover {
     background-color: rgba(0, 0, 0, 0.05);
