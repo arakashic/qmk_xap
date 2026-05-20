@@ -25,11 +25,38 @@
     const xapConstants: Ref<XapConstants | null> = ref(null)
     const keymap: Ref<MappedKeymap | null> = ref(null)
 
+    const LIGHTING_SUBGROUPS = ['backlight', 'led_matrix', 'rgb', 'rgb_matrix']
+
+    const lightingCategories = computed(() => {
+        const cats = xapConstants.value?.keycodes ?? []
+        return cats
+            .filter((c) => LIGHTING_SUBGROUPS.includes(c.name))
+            .sort((a, b) => a.name.localeCompare(b.name))
+    })
+
     const keycodeCategoryRows = computed(() => {
         const cats = xapConstants.value?.keycodes ?? []
-        const sorted = [...cats].sort((a, b) => a.name.localeCompare(b.name))
-        const mid = Math.ceil(sorted.length / 2)
-        return [sorted.slice(0, mid), sorted.slice(mid)]
+        const nonLighting = cats.filter((c) => !LIGHTING_SUBGROUPS.includes(c.name))
+        const topLevel = [...nonLighting].sort((a, b) => a.name.localeCompare(b.name))
+        if (lightingCategories.value.length > 0) {
+            topLevel.push({ name: 'lighting', codes: [] })
+        }
+        const mid = Math.ceil(topLevel.length / 2)
+        return [topLevel.slice(0, mid), topLevel.slice(mid)]
+    })
+
+    const isLightingTab = computed(() => LIGHTING_SUBGROUPS.includes(keycodeTab.value))
+
+    const topLevelTab = computed({
+        get: () => (isLightingTab.value ? 'lighting' : keycodeTab.value),
+        set: (val: string) => {
+            if (val === 'lighting') {
+                const first = lightingCategories.value[0]?.name
+                if (first) keycodeTab.value = first
+            } else {
+                keycodeTab.value = val
+            }
+        },
     })
 
     async function remapKey(code: number) {
@@ -190,7 +217,7 @@
             <q-tabs
                 v-for="(row, rowIdx) in keycodeCategoryRows"
                 :key="rowIdx"
-                v-model="keycodeTab"
+                v-model="topLevelTab"
                 class="text-primary"
                 align="left"
                 inline-label
@@ -199,6 +226,22 @@
             >
                 <q-tab
                     v-for="category in row"
+                    :key="category.name"
+                    :label="category.name"
+                    :name="category.name"
+                />
+            </q-tabs>
+            <q-tabs
+                v-if="isLightingTab"
+                v-model="keycodeTab"
+                class="text-secondary lighting-subtabs"
+                align="left"
+                inline-label
+                outside-arrows
+                dense
+            >
+                <q-tab
+                    v-for="category in lightingCategories"
                     :key="category.name"
                     :label="category.name"
                     :name="category.name"
