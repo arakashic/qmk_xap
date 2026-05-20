@@ -6,7 +6,7 @@
     const props = defineProps<{ codes: KeyCode[]; disabled: boolean }>()
     const emit = defineEmits<{ select: [code: number] }>()
 
-    const UNIT = 3.5 // rem per keyboard unit
+    const UNIT = 4.75 // rem per keyboard unit — gives 4.5rem per 1u key (unit - 0.25rem gap)
 
     interface KeyPos {
         key: string
@@ -251,7 +251,7 @@
                     v-for="code in group.codes"
                     :key="code.code"
                     :disabled="props.disabled || code.code === undefined"
-                    style="width: 3.25rem; height: 3.25rem"
+                    style="width: 4.5rem; height: 4.5rem"
                     class="keycode-button key-name-button rounded-lg p-2 border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300 text-black"
                     @click="code.code !== undefined && emit('select', code.code)"
                 >
