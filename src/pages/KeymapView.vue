@@ -13,6 +13,7 @@
     } from '@generated/xap'
     import { commands } from '@/utils/commands'
     import { notifyError } from '@/utils/utils'
+    import BasicKeyboardLayout from '@/components/BasicKeyboardLayout.vue'
 
     const store = useXapDeviceStore()
     const { device } = storeToRefs(store) as { device: Ref<XapDeviceState | null> }
@@ -195,23 +196,31 @@
                     :label="category.name"
                     class="row"
                 >
-                    <button
-                        v-for="code in category.codes"
-                        :key="code.code"
+                    <BasicKeyboardLayout
+                        v-if="category.name === 'basic'"
+                        :codes="category.codes"
                         :disabled="device?.secure_status != 'Unlocked'"
-                        style="width: 4.5rem; height: 4.5rem"
-                        class="keycode-button key-name-button mr-2 mb-2 rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
-                        @click="remapKey(code.code!)"
-                    >
-                        <span>{{ code.label ?? code.key }}</span>
-                        <q-tooltip
-                            v-if="device?.secure_status != 'Unlocked'"
-                            icon="block"
-                            class="bg-red"
+                        @select="remapKey"
+                    />
+                    <template v-else>
+                        <button
+                            v-for="code in category.codes"
+                            :key="code.code"
+                            :disabled="device?.secure_status != 'Unlocked'"
+                            style="width: 4.5rem; height: 4.5rem"
+                            class="keycode-button key-name-button mr-2 mb-2 rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
+                            @click="remapKey(code.code!)"
                         >
-                            Device is locked
-                        </q-tooltip>
-                    </button>
+                            <span>{{ code.label ?? code.key }}</span>
+                            <q-tooltip
+                                v-if="device?.secure_status != 'Unlocked'"
+                                icon="block"
+                                class="bg-red"
+                            >
+                                Device is locked
+                            </q-tooltip>
+                        </button>
+                    </template>
                 </q-tab-panel>
             </q-tab-panels>
         </div>
