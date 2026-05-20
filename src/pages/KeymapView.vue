@@ -34,29 +34,20 @@
             .sort((a, b) => a.name.localeCompare(b.name))
     })
 
-    const keycodeCategoryRows = computed(() => {
+    const nonLightingCategories = computed(() => {
         const cats = xapConstants.value?.keycodes ?? []
-        const nonLighting = cats.filter((c) => !LIGHTING_SUBGROUPS.includes(c.name))
-        const topLevel = [...nonLighting].sort((a, b) => a.name.localeCompare(b.name))
+        return cats
+            .filter((c) => !LIGHTING_SUBGROUPS.includes(c.name))
+            .sort((a, b) => a.name.localeCompare(b.name))
+    })
+
+    const keycodeCategoryRows = computed(() => {
+        const topLevel = [...nonLightingCategories.value]
         if (lightingCategories.value.length > 0) {
             topLevel.push({ name: 'lighting', codes: [] })
         }
         const mid = Math.ceil(topLevel.length / 2)
         return [topLevel.slice(0, mid), topLevel.slice(mid)]
-    })
-
-    const isLightingTab = computed(() => LIGHTING_SUBGROUPS.includes(keycodeTab.value))
-
-    const topLevelTab = computed({
-        get: () => (isLightingTab.value ? 'lighting' : keycodeTab.value),
-        set: (val: string) => {
-            if (val === 'lighting') {
-                const first = lightingCategories.value[0]?.name
-                if (first) keycodeTab.value = first
-            } else {
-                keycodeTab.value = val
-            }
-        },
     })
 
     async function remapKey(code: number) {
@@ -217,7 +208,7 @@
             <q-tabs
                 v-for="(row, rowIdx) in keycodeCategoryRows"
                 :key="rowIdx"
-                v-model="topLevelTab"
+                v-model="keycodeTab"
                 class="text-primary"
                 align="left"
                 inline-label
@@ -231,27 +222,9 @@
                     :name="category.name"
                 />
             </q-tabs>
-            <q-tabs
-                v-if="isLightingTab"
-                v-model="keycodeTab"
-                class="text-secondary lighting-subtabs"
-                align="left"
-                inline-label
-                outside-arrows
-                dense
-            >
-                <q-tab
-                    v-for="category in lightingCategories"
-                    :key="category.name"
-                    :label="category.name"
-                    :name="category.name"
-                />
-            </q-tabs>
             <q-tab-panels v-model="keycodeTab">
                 <q-tab-panel
-                    v-for="category in xapConstants?.keycodes.sort((a, b) =>
-                        a.name.localeCompare(b.name),
-                    )"
+                    v-for="category in nonLightingCategories"
                     :key="category.name"
                     :name="category.name"
                     :label="category.name"
@@ -283,6 +256,43 @@
                             </q-tooltip>
                         </button>
                     </template>
+                </q-tab-panel>
+                <q-tab-panel
+                    v-if="lightingCategories.length > 0"
+                    name="lighting"
+                    label="lighting"
+                >
+                    <div
+                        v-for="group in lightingCategories"
+                        :key="group.name"
+                        class="mt-4"
+                    >
+                        <div
+                            class="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide"
+                        >
+                            {{ group.name }}
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                v-for="code in group.codes"
+                                :key="code.code"
+                                :disabled="device?.secure_status != 'Unlocked'"
+                                style="width: 4.5rem; height: 4.5rem"
+                                class="keycode-button key-name-button rounded-lg p-2 text-black border-2 ring-4 ring-inset shadow-md border-black ring-neutral-300"
+                                @click="remapKey(code.code!)"
+                            >
+                                <span>{{ code.label ?? code.key }}</span>
+                                <q-tooltip
+                                    v-if="device?.secure_status != 'Unlocked'"
+                                    icon="block"
+                                    class="bg-red"
+                                    style="white-space: nowrap"
+                                >
+                                    Device is locked
+                                </q-tooltip>
+                            </button>
+                        </div>
+                    </div>
                 </q-tab-panel>
             </q-tab-panels>
         </div>
