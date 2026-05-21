@@ -119,6 +119,7 @@ pub struct XapDeviceState {
     #[serde(skip)]
     pub keymap: Keymap,
     pub config: Config,
+    pub config_json: String,
     pub secure_status: XapSecureStatus,
 }
 
@@ -154,6 +155,7 @@ impl XapDevice {
                 layouts: HashMap::new(),
                 matrix_size: Point2D { x: 0, y: 0 },
             },
+            config_json: String::new(),
             secure_status: XapSecureStatus::Locked,
         };
 
@@ -494,7 +496,9 @@ impl XapDevice {
 
         decoder.read_to_string(&mut decompressed)?;
 
-        self.state.config = serde_json::from_str(&decompressed)?;
+        let value: serde_json::Value = serde_json::from_str(&decompressed)?;
+        self.state.config_json = serde_json::to_string_pretty(&value)?;
+        self.state.config = serde_json::from_value(value)?;
 
         Ok(())
     }
