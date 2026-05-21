@@ -15,3 +15,12 @@ export function notifyDeviceLocked() {
         icon: 'block',
     })
 }
+
+export function notifyInfo(message: string) {
+    Notify.create({
+        message,
+        color: 'amber-7',
+        textColor: 'black',
+        icon: 'info',
+    })
+}
