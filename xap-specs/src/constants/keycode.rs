@@ -13,6 +13,7 @@ use super::keycode_display::{
     apply_overrides, build_name_to_code, build_view_for_version, read_keycode_display,
     KeycodeDisplay, KeycodeView,
 };
+use super::keycode_encoder::KeycodeTemplate;
 
 const GENERATED_KEYCODES_PREFIX: &str = "keycodes_";
 const GENERATED_KEYCODES_SUFFIX: &str = ".generated.hjson";
@@ -41,6 +42,8 @@ pub struct KeyCode {
     #[serde(default)]
     #[serde_as(as = "NoneAsEmptyString")]
     pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<KeycodeTemplate>,
 }
 
 #[derive(Debug, Serialize, Clone, Type)]
@@ -62,6 +65,7 @@ impl KeyCode {
             bottom: None,
             aliases: vec![],
             description: None,
+            template: None,
         }
     }
 }
@@ -391,6 +395,7 @@ mod test {
                 bottom: None,
                 aliases: vec!["XXXXXXX".to_owned()],
                 description: None,
+                template: None,
             }
         );
 
@@ -405,6 +410,7 @@ mod test {
                 bottom: None,
                 aliases: vec!["_______".to_owned(), "KC_TRNS".to_owned()],
                 description: None,
+                template: None,
             }
         );
 
@@ -419,6 +425,7 @@ mod test {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             }
         );
 
@@ -433,6 +440,7 @@ mod test {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             }
         );
     }
@@ -594,6 +602,7 @@ mod test {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             }
         );
     }

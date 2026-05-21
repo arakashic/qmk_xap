@@ -1,6 +1,7 @@
 pub mod keycode;
 mod keycode_decoder;
 pub mod keycode_display;
+pub mod keycode_encoder;
 pub mod lighting;
 
 use std::path::PathBuf;

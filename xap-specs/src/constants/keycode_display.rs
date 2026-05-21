@@ -25,6 +25,8 @@ pub struct KeycodeDisplay {
 pub struct TabSpec {
     pub id: String,
     pub label: String,
+    #[serde(default)]
+    pub color: Option<String>,
     pub subgroups: Vec<SubgroupSpec>,
 }
 
@@ -41,6 +43,27 @@ pub struct SubgroupSpec {
     pub from_groups: Vec<String>,
     #[serde(default)]
     pub keys: Option<Vec<String>>,
+    #[serde(default)]
+    pub template: Option<SubgroupTemplate>,
+}
+
+/// Parameterised subgroup descriptor. The wire type ships the descriptor
+/// un-expanded; the frontend renders one button per layer / mod combination
+/// using the connected keyboard's layer count.
+#[derive(Deserialize, Serialize, Debug, Clone, Type)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SubgroupTemplate {
+    Mo,
+    Tg,
+    To,
+    Df,
+    Osl,
+    Tt,
+    Pdf,
+    Lt,
+    Lm,
+    Mt { mods: Vec<String> },
+    QkMods { mods: Vec<String> },
 }
 
 impl SubgroupSpec {
@@ -72,6 +95,7 @@ pub struct KeycodeViewTab {
     pub id: String,
     pub label: String,
     pub is_fallback: bool,
+    pub color: Option<String>,
     pub subgroups: Vec<KeycodeViewSubgroup>,
 }
 
@@ -82,6 +106,9 @@ pub struct KeycodeViewSubgroup {
     pub render_mode: Option<String>,
     pub is_fallback: bool,
     pub codes: Vec<KeyCode>,
+    /// Parameterised subgroup. When present, `codes` is empty and the
+    /// frontend expands one button per layer / mod combination at render time.
+    pub template: Option<SubgroupTemplate>,
 }
 
 pub fn read_keycode_display(path: impl AsRef<Path>) -> Result<KeycodeDisplay> {
@@ -160,6 +187,20 @@ pub fn build_remapped_view(
     for (ti, tab) in display.tabs.iter().enumerate() {
         let mut view_subgroups = Vec::new();
         for (si, sg) in tab.subgroups.iter().enumerate() {
+            // Parameterised subgroups carry a template descriptor and no concrete
+            // catalog codes; the frontend expands them at render time.
+            if let Some(template) = &sg.template {
+                view_subgroups.push(KeycodeViewSubgroup {
+                    id: sg.id.clone(),
+                    label: sg.label.clone(),
+                    render_mode: sg.render_mode.clone(),
+                    is_fallback: false,
+                    codes: Vec::new(),
+                    template: Some(template.clone()),
+                });
+                continue;
+            }
+
             let mut ordered: Vec<u16> = Vec::new();
             let mut seen_in_sg: HashSet<u16> = HashSet::new();
 
@@ -226,6 +267,7 @@ pub fn build_remapped_view(
                 render_mode: sg.render_mode.clone(),
                 is_fallback: false,
                 codes: codes_list,
+                template: None,
             });
         }
 
@@ -237,6 +279,7 @@ pub fn build_remapped_view(
             id: tab.id.clone(),
             label: tab.label.clone(),
             is_fallback: false,
+            color: tab.color.clone(),
             subgroups: view_subgroups,
         });
     }
@@ -261,12 +304,14 @@ pub fn build_remapped_view(
             id: group.clone(),
             label: group.clone(),
             is_fallback: true,
+            color: None,
             subgroups: vec![KeycodeViewSubgroup {
                 id: group.clone(),
                 label: None,
                 render_mode: None,
                 is_fallback: true,
                 codes: codes_list,
+                template: None,
             }],
         });
     }
@@ -283,12 +328,14 @@ pub fn build_remapped_view(
                 id: "hidden".to_owned(),
                 label: "Hidden".to_owned(),
                 is_fallback: false,
+                color: None,
                 subgroups: vec![KeycodeViewSubgroup {
                     id: "hidden".to_owned(),
                     label: None,
                     render_mode: None,
                     is_fallback: false,
                     codes: codes_list,
+                    template: None,
                 }],
             });
         }
@@ -317,12 +364,14 @@ pub fn build_raw_view(codes: &HashMap<u16, KeyCode>) -> KeycodeView {
                 id: name.clone(),
                 label: name.clone(),
                 is_fallback: true,
+                color: None,
                 subgroups: vec![KeycodeViewSubgroup {
                     id: name.clone(),
                     label: None,
                     render_mode: None,
                     is_fallback: true,
                     codes: codes_list,
+                    template: None,
                 }],
             }
         })
@@ -360,6 +409,7 @@ mod test {
             bottom: None,
             aliases: vec![],
             description: None,
+            template: None,
         }
     }
 
@@ -648,6 +698,40 @@ mod test {
         let view = build_remapped_view(&display, &codes, &n2c, &HashSet::new());
         let picky_codes: Vec<u16> = view.tabs[0].subgroups[0].codes.iter().map(|c| c.code).collect();
         assert_eq!(picky_codes, vec![0x0004]);
+    }
+
+    #[test]
+    fn template_subgroups_pass_through_without_codes() {
+        let codes = fixture_codes();
+        let display = parse_display(
+            r#"{
+                "target_keycode_version": "0.0.8",
+                "tabs": [
+                    {
+                        "id": "layer", "label": "Layer", "color": "blue",
+                        "subgroups": [
+                            { "id": "mo", "label": "Momentary (MO)", "template": { "kind": "MO" } },
+                            { "id": "mt", "label": "Mod-Tap", "template": { "kind": "MT", "mods": ["LSFT", "MEH"] } }
+                        ]
+                    }
+                ]
+            }"#,
+        );
+        let n2c = build_name_to_code(&codes);
+        let view = build_remapped_view(&display, &codes, &n2c, &HashSet::new());
+        let tab = view.tabs.iter().find(|t| t.id == "layer").expect("layer tab");
+        assert_eq!(tab.color.as_deref(), Some("blue"));
+        assert_eq!(tab.subgroups.len(), 2);
+        let mo = &tab.subgroups[0];
+        assert!(mo.codes.is_empty());
+        assert!(matches!(mo.template, Some(SubgroupTemplate::Mo)));
+        let mt = &tab.subgroups[1];
+        match &mt.template {
+            Some(SubgroupTemplate::Mt { mods }) => {
+                assert_eq!(mods, &vec!["LSFT".to_owned(), "MEH".to_owned()]);
+            }
+            other => panic!("expected MT template, got {other:?}"),
+        }
     }
 
     #[test]

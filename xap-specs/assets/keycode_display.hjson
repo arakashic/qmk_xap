@@ -79,6 +79,69 @@
                 }
             ]
         },
+        // Parameterised keycodes. Each template subgroup expands at render
+        // time against the connected keyboard's layer count.
+        {
+            "id": "layer",
+            "label": "Layer",
+            "color": "blue",
+            "subgroups": [
+                { "id": "mo",  "label": "Momentary (MO)",        "template": { "kind": "MO"  } },
+                { "id": "tg",  "label": "Toggle (TG)",           "template": { "kind": "TG"  } },
+                { "id": "to",  "label": "Activate (TO)",         "template": { "kind": "TO"  } },
+                { "id": "df",  "label": "Default (DF)",          "template": { "kind": "DF"  } },
+                { "id": "osl", "label": "One-Shot Layer (OSL)",  "template": { "kind": "OSL" } },
+                { "id": "tt",  "label": "Tap-Toggle (TT)",       "template": { "kind": "TT"  } },
+                { "id": "pdf", "label": "Persistent Default (PDF)", "template": { "kind": "PDF" } },
+                { "id": "lt",  "label": "Layer-Tap (LT)",        "template": { "kind": "LT"  } }
+            ]
+        },
+        {
+            "id": "modtap",
+            "label": "Mod-Tap",
+            "color": "purple",
+            "subgroups": [
+                {
+                    "id": "mt",
+                    "label": "Hold Modifier / Tap Key",
+                    "template": {
+                        "kind": "MT",
+                        "mods": [
+                            "LSFT", "LCTL", "LALT", "LGUI",
+                            "RSFT", "RCTL", "RALT", "RGUI",
+                            "LCA", "LCAG", "MEH", "HYPR"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "layer_mod",
+            "label": "Layer-Mod",
+            "color": "cyan",
+            "subgroups": [
+                { "id": "lm", "label": "Layer + Modifier (LM)", "template": { "kind": "LM" } }
+            ]
+        },
+        {
+            "id": "modified",
+            "label": "Modified",
+            "color": "orange",
+            "subgroups": [
+                {
+                    "id": "qk_mods",
+                    "label": "Modifier + Key",
+                    "template": {
+                        "kind": "QK_MODS",
+                        "mods": [
+                            "LSFT", "LCTL", "LALT", "LGUI",
+                            "RSFT", "RCTL", "RALT", "RGUI",
+                            "LCA", "LCAG", "MEH", "HYPR"
+                        ]
+                    }
+                }
+            ]
+        },
         {
             "id": "lighting",
             "label": "Lighting",

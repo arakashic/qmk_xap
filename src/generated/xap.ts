@@ -426,6 +426,17 @@ export const commands = {
     async devicesGet(): Promise<XapDeviceState[]> {
         return await TAURI_INVOKE('devices_get')
     },
+    async keycodeTemplateEncode(template: KeycodeTemplate): Promise<Result<number, Error>> {
+        try {
+            return {
+                status: 'ok',
+                data: await TAURI_INVOKE('keycode_template_encode', { template }),
+            }
+        } catch (e) {
+            if (e instanceof Error) throw e
+            else return { status: 'error', error: e as any }
+        }
+    },
 }
 
 export const events = __makeEvents__<{
@@ -458,7 +469,28 @@ export type KeyCode = {
     bottom?: string | null
     aliases?: string[]
     description?: string | null
+    template?: KeycodeTemplate | null
 }
+export type LayerOp = 'MO' | 'TG' | 'TO' | 'DF' | 'OSL' | 'TT' | 'PDF'
+export type KeycodeTemplate =
+    | { kind: 'LayerOp'; op: LayerOp; layer: number }
+    | { kind: 'OneShotMod'; mod_mask: number }
+    | { kind: 'LayerTap'; layer: number; tap_kc: number | null }
+    | { kind: 'ModTap'; mod_mask: number; tap_kc: number | null }
+    | { kind: 'LayerMod'; layer: number; mod_mask: number | null }
+    | { kind: 'Modified'; mod_mask: number; base_kc: number | null }
+export type SubgroupTemplate =
+    | { kind: 'MO' }
+    | { kind: 'TG' }
+    | { kind: 'TO' }
+    | { kind: 'DF' }
+    | { kind: 'OSL' }
+    | { kind: 'TT' }
+    | { kind: 'PDF' }
+    | { kind: 'LT' }
+    | { kind: 'LM' }
+    | { kind: 'MT'; mods: string[] }
+    | { kind: 'QK_MODS'; mods: string[] }
 export type KeycodeView = { tabs: KeycodeViewTab[] }
 export type KeycodeViewSubgroup = {
     id: string
@@ -466,11 +498,13 @@ export type KeycodeViewSubgroup = {
     render_mode: string | null
     is_fallback: boolean
     codes: KeyCode[]
+    template: SubgroupTemplate | null
 }
 export type KeycodeViewTab = {
     id: string
     label: string
     is_fallback: boolean
+    color: string | null
     subgroups: KeycodeViewSubgroup[]
 }
 export type KeymapCapabilitiesFlags = number

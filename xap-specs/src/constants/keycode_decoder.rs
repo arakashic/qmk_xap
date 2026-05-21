@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::keycode::KeyCode;
+use super::keycode_encoder::{KeycodeTemplate, LayerOp};
 
 // Range bases / ends, mirroring `qmk_firmware_ref/quantum/quantum_keycodes.h`.
 const QK_MODS_START: u16 = 0x0100;
@@ -21,35 +22,35 @@ const QK_LAYER_TAP_TOGGLE_START: u16 = 0x52C0;
 const QK_PERSISTENT_DEF_LAYER_START: u16 = 0x52E0;
 const LAYER_OP_SPAN: u16 = 0x20;
 
-pub(super) fn decode_parameterized(
+pub(crate) fn decode_parameterized(
     code: u16,
     lookup: &HashMap<u16, KeyCode>,
 ) -> Option<KeyCode> {
     // Narrow 0x52xx sub-ranges first; QK_LAYER_MOD / QK_LAYER_TAP / QK_MOD_TAP /
     // QK_MODS are the wide fallbacks.
     if in_layer_op(code, QK_TO_START) {
-        return Some(layer_op(code, "TO", QK_TO_START));
+        return Some(layer_op(code, "TO", QK_TO_START, LayerOp::TO));
     }
     if in_layer_op(code, QK_MOMENTARY_START) {
-        return Some(layer_op(code, "MO", QK_MOMENTARY_START));
+        return Some(layer_op(code, "MO", QK_MOMENTARY_START, LayerOp::MO));
     }
     if in_layer_op(code, QK_DEF_LAYER_START) {
-        return Some(layer_op(code, "DF", QK_DEF_LAYER_START));
+        return Some(layer_op(code, "DF", QK_DEF_LAYER_START, LayerOp::DF));
     }
     if in_layer_op(code, QK_TOGGLE_LAYER_START) {
-        return Some(layer_op(code, "TG", QK_TOGGLE_LAYER_START));
+        return Some(layer_op(code, "TG", QK_TOGGLE_LAYER_START, LayerOp::TG));
     }
     if in_layer_op(code, QK_ONE_SHOT_LAYER_START) {
-        return Some(layer_op(code, "OSL", QK_ONE_SHOT_LAYER_START));
+        return Some(layer_op(code, "OSL", QK_ONE_SHOT_LAYER_START, LayerOp::OSL));
     }
     if in_layer_op(code, QK_ONE_SHOT_MOD_START) {
         return Some(one_shot_mod(code));
     }
     if in_layer_op(code, QK_LAYER_TAP_TOGGLE_START) {
-        return Some(layer_op(code, "TT", QK_LAYER_TAP_TOGGLE_START));
+        return Some(layer_op(code, "TT", QK_LAYER_TAP_TOGGLE_START, LayerOp::TT));
     }
     if in_layer_op(code, QK_PERSISTENT_DEF_LAYER_START) {
-        return Some(layer_op(code, "PDF", QK_PERSISTENT_DEF_LAYER_START));
+        return Some(layer_op(code, "PDF", QK_PERSISTENT_DEF_LAYER_START, LayerOp::PDF));
     }
     if (QK_LAYER_MOD_START..QK_LAYER_MOD_END_EXCL).contains(&code) {
         return Some(layer_mod(code));
@@ -70,64 +71,77 @@ fn in_layer_op(code: u16, base: u16) -> bool {
     (base..base + LAYER_OP_SPAN).contains(&code)
 }
 
-fn layer_op(code: u16, prefix: &str, base: u16) -> KeyCode {
-    let layer = code - base;
-    decoded(code, format!("{prefix}({layer})"), "layer")
+fn layer_op(code: u16, prefix: &str, base: u16, op: LayerOp) -> KeyCode {
+    let layer = (code - base) as u8;
+    let mut kc = decoded(code, format!("{prefix}({layer})"), "layer");
+    kc.template = Some(KeycodeTemplate::LayerOp { op, layer });
+    kc
 }
 
 fn one_shot_mod(code: u16) -> KeyCode {
     let mods = (code & 0x1F) as u8;
-    decoded(code, format!("OSM({})", mods_name(mods)), "one_shot_mod")
+    let mut kc = decoded(code, format!("OSM({})", mods_name(mods)), "one_shot_mod");
+    kc.template = Some(KeycodeTemplate::OneShotMod { mod_mask: mods });
+    kc
 }
 
 fn layer_mod(code: u16) -> KeyCode {
-    let layer = (code >> 5) & 0x0F;
+    let layer = ((code >> 5) & 0x0F) as u8;
     let mods = (code & 0x1F) as u8;
     let mods_label = mods_name(mods);
-    decoded_split(
+    let mut kc = decoded_split(
         code,
         format!("LM({layer}, {mods_label})"),
         format!("LM({layer})"),
         mods_label,
         "layer_mod",
-    )
+    );
+    kc.template = Some(KeycodeTemplate::LayerMod { layer, mod_mask: Some(mods) });
+    kc
 }
 
 fn layer_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
-    let layer = (code >> 8) & 0x0F;
+    let layer = ((code >> 8) & 0x0F) as u8;
     let basic = (code & 0xFF) as u8;
-    let kc = basic_kc_label(basic, lookup);
-    decoded_split(
+    let kc_label = basic_kc_label(basic, lookup);
+    let mut kc = decoded_split(
         code,
-        format!("LT({layer}, {kc})"),
+        format!("LT({layer}, {kc_label})"),
         format!("LT({layer})"),
-        kc,
+        kc_label,
         "layer_tap",
-    )
+    );
+    kc.template = Some(KeycodeTemplate::LayerTap { layer, tap_kc: Some(basic) });
+    kc
 }
 
 fn mod_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let mods = ((code >> 8) & 0x1F) as u8;
     let basic = (code & 0xFF) as u8;
-    let kc = basic_kc_label(basic, lookup);
-    if mods == 0 {
+    let kc_label = basic_kc_label(basic, lookup);
+    let mut kc = if mods == 0 {
         // Degenerate MT(0, kc) - no meaningful hold action, render as single label.
-        return decoded(code, format!("MT(0, {kc})"), "mod_tap");
-    }
-    let top = format!("{}_T", mods_name(mods));
-    decoded_split(code, format!("{top}({kc})"), top, kc, "mod_tap")
+        decoded(code, format!("MT(0, {kc_label})"), "mod_tap")
+    } else {
+        let top = format!("{}_T", mods_name(mods));
+        decoded_split(code, format!("{top}({kc_label})"), top, kc_label, "mod_tap")
+    };
+    kc.template = Some(KeycodeTemplate::ModTap { mod_mask: mods, tap_kc: Some(basic) });
+    kc
 }
 
 fn qk_mods(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let mods = ((code >> 8) & 0x1F) as u8;
     let basic = (code & 0xFF) as u8;
-    let kc = basic_kc_label(basic, lookup);
+    let kc_label = basic_kc_label(basic, lookup);
     let label = if mods == 0 {
-        kc
+        kc_label
     } else {
-        format!("{}({kc})", mods_name(mods))
+        format!("{}({kc_label})", mods_name(mods))
     };
-    decoded(code, label, "mods")
+    let mut kc = decoded(code, label, "mods");
+    kc.template = Some(KeycodeTemplate::Modified { mod_mask: mods, base_kc: Some(basic) });
+    kc
 }
 
 fn decoded(code: u16, label: String, group: &str) -> KeyCode {
@@ -140,6 +154,7 @@ fn decoded(code: u16, label: String, group: &str) -> KeyCode {
         bottom: None,
         aliases: Vec::new(),
         description: None,
+        template: None,
     }
 }
 
@@ -162,6 +177,7 @@ fn decoded_split(
         bottom: Some(bottom),
         aliases: Vec::new(),
         description: None,
+        template: None,
     }
 }
 
@@ -250,6 +266,7 @@ mod tests {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             },
         );
         m.insert(
@@ -263,6 +280,7 @@ mod tests {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             },
         );
         m.insert(
@@ -276,6 +294,7 @@ mod tests {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             },
         );
         m.insert(
@@ -289,6 +308,7 @@ mod tests {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             },
         );
         // Entry without a label, to exercise the KC_ stripping fallback.
@@ -303,6 +323,7 @@ mod tests {
                 bottom: None,
                 aliases: vec![],
                 description: None,
+                template: None,
             },
         );
         m

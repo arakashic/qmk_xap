@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::State;
 use uuid::Uuid;
+use xap_specs::constants::keycode_encoder::KeycodeTemplate;
 use xap_specs::constants::XapConstants;
 
 use crate::aggregation::keymap::MappedKeymap;
@@ -62,4 +63,14 @@ pub fn devices_get(state: State<'_, Arc<Mutex<XapClient>>>) -> Vec<XapDeviceStat
         .map(|device| device.state())
         .cloned()
         .collect()
+}
+
+/// Encode a complete parameterised keycode template (mod-tap, layer-tap, etc.)
+/// into the 16-bit value the firmware expects on the wire.
+#[tauri::command]
+#[specta::specta]
+pub fn keycode_template_encode(template: KeycodeTemplate) -> Result<u16, Error> {
+    template
+        .encode()
+        .ok_or_else(|| Error("keycode template is incomplete".to_owned()))
 }
