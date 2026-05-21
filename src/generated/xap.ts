@@ -426,6 +426,10 @@ export const commands = {
     async devicesGet(): Promise<XapDeviceState[]> {
         return await TAURI_INVOKE('devices_get')
     },
+    /**
+     * Encode a complete parameterised keycode template (mod-tap, layer-tap, etc.)
+     * into the 16-bit value the firmware expects on the wire.
+     */
     async keycodeTemplateEncode(template: KeycodeTemplate): Promise<Result<number, Error>> {
         try {
             return {
@@ -471,7 +475,12 @@ export type KeyCode = {
     description?: string | null
     template?: KeycodeTemplate | null
 }
-export type LayerOp = 'MO' | 'TG' | 'TO' | 'DF' | 'OSL' | 'TT' | 'PDF'
+/**
+ * A parameterized keycode the GUI either decoded from firmware or is in the
+ * middle of assembling via the picker. Variants with `Option` slots are the
+ * two-step pickers: the slot is `None` while the picker is collecting the
+ * remaining input.
+ */
 export type KeycodeTemplate =
     | { kind: 'LayerOp'; op: LayerOp; layer: number }
     | { kind: 'OneShotMod'; mod_mask: number }
@@ -479,18 +488,6 @@ export type KeycodeTemplate =
     | { kind: 'ModTap'; mod_mask: number; tap_kc: number | null }
     | { kind: 'LayerMod'; layer: number; mod_mask: number | null }
     | { kind: 'Modified'; mod_mask: number; base_kc: number | null }
-export type SubgroupTemplate =
-    | { kind: 'MO' }
-    | { kind: 'TG' }
-    | { kind: 'TO' }
-    | { kind: 'DF' }
-    | { kind: 'OSL' }
-    | { kind: 'TT' }
-    | { kind: 'PDF' }
-    | { kind: 'LT' }
-    | { kind: 'LM' }
-    | { kind: 'MT'; mods: string[] }
-    | { kind: 'QK_MODS'; mods: string[] }
 export type KeycodeView = { tabs: KeycodeViewTab[] }
 export type KeycodeViewSubgroup = {
     id: string
@@ -498,6 +495,10 @@ export type KeycodeViewSubgroup = {
     render_mode: string | null
     is_fallback: boolean
     codes: KeyCode[]
+    /**
+     * Parameterised subgroup. When present, `codes` is empty and the
+     * frontend expands one button per layer / mod combination at render time.
+     */
     template: SubgroupTemplate | null
 }
 export type KeycodeViewTab = {
@@ -519,6 +520,7 @@ export type KeymapInfo = {
     get_encoder_keycode_enabled: boolean
 }
 export type KeymapKey = { code: KeyCode; position: Point3D }
+export type LayerOp = 'MO' | 'TG' | 'TO' | 'DF' | 'OSL' | 'TT' | 'PDF'
 export type Layout = { layout: LayoutEntry[] }
 export type LayoutEntry = {
     matrix: Point2D
@@ -654,6 +656,23 @@ export type RgblightCapabilitiesFlags = number
 export type RgblightGetEnabledEffectsResponse = bigint
 export type RgbmatrixCapabilitiesFlags = number
 export type RgbmatrixGetEnabledEffectsResponse = bigint
+/**
+ * Parameterised subgroup descriptor. The wire type ships the descriptor
+ * un-expanded; the frontend renders one button per layer / mod combination
+ * using the connected keyboard's layer count.
+ */
+export type SubgroupTemplate =
+    | { kind: 'MO' }
+    | { kind: 'TG' }
+    | { kind: 'TO' }
+    | { kind: 'DF' }
+    | { kind: 'OSL' }
+    | { kind: 'TT' }
+    | { kind: 'PDF' }
+    | { kind: 'LT' }
+    | { kind: 'LM' }
+    | { kind: 'MT'; mods: string[] }
+    | { kind: 'QK_MODS'; mods: string[] }
 export type UTF8String = string
 export type XapCapabilitiesFlags = number
 export type XapConstants = {
