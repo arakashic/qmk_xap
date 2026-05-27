@@ -1,11 +1,18 @@
 <script setup lang="ts">
     import { storeToRefs } from 'pinia'
+    import { computed } from 'vue'
+    import { useRoute } from 'vue-router'
     import { useXapDeviceStore } from '@/utils/deviceStore'
     import { XapDeviceState } from '@generated/xap'
     import { commands } from '@/utils/commands'
 
     const store = useXapDeviceStore()
     const { device, devices } = storeToRefs(store)
+
+    const route = useRoute()
+    const showSecureButton = computed(
+        () => device.value != null && route.meta.showSecureButton === true,
+    )
 </script>
 
 <template>
@@ -54,7 +61,7 @@
         <q-page-container>
             <router-view v-if="device != null" />
         </q-page-container>
-        <q-page-sticky position="bottom-right" :offset="[24, 24]">
+        <q-page-sticky v-if="showSecureButton" position="bottom-right" :offset="[24, 24]">
             <q-btn
                 fab
                 :loading="device?.secure_status == 'Unlocking'"
