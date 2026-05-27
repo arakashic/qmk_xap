@@ -437,6 +437,14 @@ export const commands = {
             else return { status: 'error', error: e as any }
         }
     },
+    /**
+     * Decode a wire keycode (u16) into a fully resolved `KeyCode` entry -- same
+     * catalog lookup the keymap fetch uses, exposed so per-key reads (e.g. the
+     * encoder map view) don't need to re-implement the lookup in TypeScript.
+     */
+    async decodeKeycode(code: number): Promise<KeyCode> {
+        return await TAURI_INVOKE('decode_keycode', { code })
+    },
 }
 
 export const events = __makeEvents__<{
@@ -458,7 +466,18 @@ export type BacklightCapabilitiesFlags = number
  */
 export type BacklightConfig = { enable: number; mode: number; val: number }
 export type BacklightGetEnabledEffectsResponse = number
-export type Config = { layouts: { [key in string]: Layout }; matrix_size: Point2D }
+export type Config = {
+    layouts: { [key in string]: Layout }
+    matrix_size: Point2D
+    encoder?: EncoderInfo
+}
+/**
+ * Mirrors QMK's `encoder` block in info.json (see
+ * `qmk_firmware_ref/data/schemas/keyboard.jsonschema`). `rotary.len()` is the
+ * authoritative encoder count for boards that ship the field; `enabled`
+ * reflects the build-time flag separately.
+ */
+export type EncoderInfo = { enabled?: boolean; rotary?: RotaryEncoder[] }
 export type Error = string
 export type KeyCode = {
     code?: number
@@ -652,6 +671,7 @@ export type RgblightCapabilitiesFlags = number
 export type RgblightGetEnabledEffectsResponse = bigint
 export type RgbmatrixCapabilitiesFlags = number
 export type RgbmatrixGetEnabledEffectsResponse = bigint
+export type RotaryEncoder = { pin_a: string; pin_b: string; resolution?: number | null }
 /**
  * Parameterised subgroup descriptor. The wire type ships the descriptor
  * un-expanded; the frontend renders one button per layer / mod combination

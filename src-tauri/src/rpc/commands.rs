@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::State;
 use uuid::Uuid;
+use xap_specs::constants::keycode::KeyCode;
 use xap_specs::constants::keycode_encoder::KeycodeTemplate;
 use xap_specs::constants::XapConstants;
 
@@ -71,4 +72,13 @@ pub fn keycode_template_encode(template: KeycodeTemplate) -> Result<u16, Error> 
     template
         .encode()
         .ok_or_else(|| Error("keycode template is incomplete".to_owned()))
+}
+
+/// Decode a wire keycode (u16) into a fully resolved `KeyCode` entry -- same
+/// catalog lookup the keymap fetch uses, exposed so per-key reads (e.g. the
+/// encoder map view) don't need to re-implement the lookup in TypeScript.
+#[tauri::command]
+#[specta::specta]
+pub fn decode_keycode(code: u16, state: State<'_, Arc<Mutex<XapClient>>>) -> KeyCode {
+    state.lock().unwrap().xap_constants().get_keycode(code)
 }
