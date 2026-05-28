@@ -150,11 +150,7 @@ impl XapDevice {
             id,
             info: None,
             keymap: Keymap::new(0, 0, 0),
-            config: Config {
-                layouts: HashMap::new(),
-                matrix_size: Point2D { x: 0, y: 0 },
-                encoder: Default::default(),
-            },
+            config: Config::default(),
             secure_status: XapSecureStatus::Locked,
         };
 
