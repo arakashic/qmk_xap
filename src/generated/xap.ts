@@ -445,6 +445,26 @@ export const commands = {
     async decodeKeycode(code: number): Promise<KeyCode> {
         return await TAURI_INVOKE('decode_keycode', { code })
     },
+    /**
+     * Bulk-fetch the full encoder keymap in one Tauri round-trip. Sweeps every
+     * (layer, encoder, clockwise) slot via `KeymapGetEncoderKeycode`, decodes
+     * each result against the keycode catalog, and returns the
+     * `[layer][encoder][clockwise]` tensor. The Rust side logs total wallclock
+     * + per-call average so encoder fetches show up alongside the keymap fetch
+     * in startup-timing profiles.
+     *
+     * Layer count is taken from `KeymapInfo.layer_count` (or `RemapInfo.layer_count`
+     * as a fallback); encoder count comes from the QMK config blob's
+     * `encoder.rotary` array. Returns an empty `Vec` when either is zero.
+     */
+    async encoderKeymapGet(id: string): Promise<Result<KeyCode[][][], Error>> {
+        try {
+            return { status: 'ok', data: await TAURI_INVOKE('encoder_keymap_get', { id }) }
+        } catch (e) {
+            if (e instanceof Error) throw e
+            else return { status: 'error', error: e as any }
+        }
+    },
 }
 
 export const events = __makeEvents__<{

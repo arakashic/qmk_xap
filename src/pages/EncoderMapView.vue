@@ -99,33 +99,16 @@
             return
         }
 
-        // Build the full [layer][encoder][cw] tensor. Parallelise to stay under a
-        // second total even on 8 layers x 4 encoders x 2 directions (~64 queries).
-        const layers = layerCount.value
-        const encoders = encoderCount.value
-        const tasks: Promise<KeyCode | null>[] = []
-        for (let l = 0; l < layers; l++) {
-            for (let e = 0; e < encoders; e++) {
-                tasks.push(readSlot(l, e, 0))
-                tasks.push(readSlot(l, e, 1))
-            }
-        }
-        const flat = await Promise.all(tasks)
-        if (flat.some((k) => k === null)) {
+        // Single round-trip: the backend sweeps every (layer, encoder, cw) slot
+        // and returns the decoded tensor. Logs total + per-call timing so the
+        // encoder fetch shows up alongside the keymap fetch in init profiles.
+        const result = await commands.encoderKeymapGet(device.value.id)
+        if (result.status === 'error') {
+            notifyError(result.error)
             encoderKeymap.value = null
             return
         }
-        const out: KeyCode[][][] = []
-        let idx = 0
-        for (let l = 0; l < layers; l++) {
-            const layer: KeyCode[][] = []
-            for (let e = 0; e < encoders; e++) {
-                layer.push([flat[idx]!, flat[idx + 1]!])
-                idx += 2
-            }
-            out.push(layer)
-        }
-        encoderKeymap.value = out
+        encoderKeymap.value = result.data
     }
 
     async function refreshSlot(layer: number, slot: EncoderSlot) {
