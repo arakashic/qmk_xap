@@ -33,6 +33,10 @@ const routes: RouteRecordRaw[] = [
                 path: 'broadcast',
                 component: () => import('@/pages/BroadcastView.vue'),
             },
+            {
+                path: 'encoder',
+                component: () => import('@/pages/EncoderMapView.vue'),
+            },
         ],
     },
 ]
