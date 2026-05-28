@@ -622,6 +622,7 @@ export type XapDeviceState = {
     id: string
     info: XapDeviceInfo | null
     config: Config
+    config_json: string
     secure_status: XapSecureStatus
 }
 export type XapEnabledSubsystemCapabilitiesFlags = number

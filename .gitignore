@@ -14,6 +14,11 @@ dist-ssr
 .yarn
 target
 
+# Tauri generates a per-OS ACL schema under gen/schemas at build time. Upstream
+# tracks the linux/desktop variants; macOS builds additionally emit this one, so
+# keep it out instead of committing a per-developer artifact.
+src-tauri/gen/schemas/macOS-schema.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

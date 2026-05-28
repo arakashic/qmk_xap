@@ -119,6 +119,7 @@ pub struct XapDeviceState {
     #[serde(skip)]
     pub keymap: Keymap,
     pub config: Config,
+    pub config_json: String,
     pub secure_status: XapSecureStatus,
 }
 
@@ -154,6 +155,7 @@ impl XapDevice {
                 layouts: HashMap::new(),
                 matrix_size: Point2D { x: 0, y: 0 },
             },
+            config_json: String::new(),
             secure_status: XapSecureStatus::Locked,
         };
 
@@ -342,10 +344,7 @@ impl XapDevice {
             board_ids,
             manufacturer,
             product_name,
-            hardware_id: format!(
-                "{}{}{}{}",
-                hardware_id[0], hardware_id[1], hardware_id[2], hardware_id[3]
-            ),
+            hardware_id: format_hardware_id(hardware_id),
             jump_to_bootloader_enabled: qmk_caps.contains(QmkCapabilitiesFlags::JumpToBootloader),
             eeprom_reset_enabled: qmk_caps.contains(QmkCapabilitiesFlags::ReinitializeEeprom),
         };
@@ -497,7 +496,9 @@ impl XapDevice {
 
         decoder.read_to_string(&mut decompressed)?;
 
-        self.state.config = serde_json::from_str(&decompressed)?;
+        let value: serde_json::Value = serde_json::from_str(&decompressed)?;
+        self.state.config_json = serde_json::to_string_pretty(&value)?;
+        self.state.config = serde_json::from_value(value)?;
 
         Ok(())
     }
@@ -592,5 +593,26 @@ impl XapDevice {
 
     pub fn secure_status(&self) -> &XapSecureStatus {
         &self.state.secure_status
+    }
+}
+
+fn format_hardware_id(hardware_id: [u32; 4]) -> String {
+    hardware_id
+        .iter()
+        .map(|word| format!("0x{word:08X}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn hardware_id_uses_four_hex_words() {
+        assert_eq!(
+            format_hardware_id([0x00000001, 0x0000000A, 0x000000FF, 0x12345678]),
+            "0x00000001 0x0000000A 0x000000FF 0x12345678"
+        );
     }
 }

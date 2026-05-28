@@ -4,6 +4,7 @@
     import { useXapDeviceStore } from '@/utils/deviceStore'
     import { XapSecureStatus, XapDeviceState } from '@generated/xap'
     import { commands } from '@/utils/commands'
+    import { formatBcdVersion } from '@/utils/format'
     import type { Ref } from 'vue'
 
     const store = useXapDeviceStore()
@@ -30,6 +31,12 @@
     async function reset() {
         if (device.value) {
             await commands.qmkReinitializeEeprom(device.value.id)
+        }
+    }
+
+    async function copyConfig() {
+        if (device.value?.config_json) {
+            await navigator.clipboard.writeText(device.value.config_json)
         }
     }
 </script>
@@ -65,14 +72,14 @@
             <q-field filled label="XAP Version" stack-label>
                 <template #control>
                     <div class="self-center full-width no-outline" tabindex="0">
-                        {{ device?.info?.xap.version }}
+                        {{ formatBcdVersion(device?.info?.xap.version) }}
                     </div>
                 </template>
             </q-field>
             <q-field filled label="QMK Version" stack-label>
                 <template #control>
                     <div class="self-center full-width no-outline" tabindex="0">
-                        {{ device?.info?.qmk.version }}
+                        {{ formatBcdVersion(device?.info?.qmk.version) }}
                     </div>
                 </template>
             </q-field>
@@ -88,6 +95,29 @@
                     </div>
                 </template>
             </q-field>
+            <q-expansion-item
+                v-if="device?.config_json"
+                header-class="q-pa-none"
+                expand-separator
+            >
+                <template #header>
+                    <q-item-section>
+                        <h5 class="q-my-none">Firmware Config</h5>
+                    </q-item-section>
+                </template>
+                <q-card flat bordered class="relative-position">
+                    <q-btn
+                        flat
+                        dense
+                        icon="content_copy"
+                        class="absolute-top-right q-ma-sm"
+                        @click.stop="copyConfig"
+                    >
+                        <q-tooltip>Copy</q-tooltip>
+                    </q-btn>
+                    <pre class="config-json">{{ device.config_json }}</pre>
+                </q-card>
+            </q-expansion-item>
             <h5>Secure Actions</h5>
             <q-field filled label="Secure Status" stack-label>
                 <template #control>
@@ -145,3 +175,16 @@
         </div>
     </q-page>
 </template>
+
+<style scoped>
+    .config-json {
+        margin: 0;
+        padding: 12px;
+        max-height: 50vh;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        white-space: pre;
+        tab-size: 2;
+    }
+</style>
