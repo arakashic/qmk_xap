@@ -33,7 +33,7 @@ use crate::{
     xap::spec::{
         keymap::{
             KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
-            KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
+            KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest,
         },
         lighting::{
             backlight::{
@@ -51,13 +51,13 @@ use crate::{
             LightingCapabilitiesFlags, LightingCapabilitiesRequest,
         },
         qmk::{
-            QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
-            QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-            QmkHardwareIdentifierRequest, QmkProductNameRequest, QmkVersionRequest,
+            QmkBoardIdentifiersResponse, QmkCapabilitiesFlags, QmkCapabilitiesRequest,
+            QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest, QmkHardwareIdentifierRequest,
+            QmkVersionRequest,
         },
         remapping::{
-            RemappingCapabilitiesFlags, RemappingCapabilitiesRequest,
-            RemappingGetLayerCountRequest, RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
+            RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingSetKeycodeArg,
+            RemappingSetKeycodeRequest,
         },
         xap::{
             XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
@@ -362,25 +362,24 @@ impl XapDevice {
         };
 
         let qmk_caps = self.query(QmkCapabilitiesRequest(()))?;
-        let board_ids = self.query(QmkBoardIdentifiersRequest(()))?;
-        // TODO: why do these strings have leading and trailing " characters -
-        // should be removed in QMK
-        let manufacturer = self
-            .query(QmkBoardManufacturerRequest(()))?
-            .0
-             .0
-            .trim_matches('"')
-            .to_owned();
-        let product_name = self
-            .query(QmkProductNameRequest(()))?
-            .0
-             .0
-            .trim_matches('"')
-            .to_owned();
 
+        // Fetch the config blob first so subsequent steps can read board
+        // identifiers, manufacturer/product name and the dynamic-keymap layer
+        // count from it instead of issuing per-field XAP queries.
         self.query_config()?;
 
         let hardware_id = self.query(QmkHardwareIdentifierRequest(()))?.0;
+
+        let usb = &self.state.config.usb;
+        let board_ids = QmkBoardIdentifiersResponse {
+            vendor_id: parse_usb_hex_u16(&usb.vid),
+            product_id: parse_usb_hex_u16(&usb.pid),
+            product_version: parse_device_version_bcd(&usb.device_version),
+            // Not present in the config blob; no caller reads it today.
+            qmk_unique_identifier: 0,
+        };
+        let manufacturer = self.state.config.manufacturer.clone();
+        let product_name = self.state.config.keyboard_name.clone();
 
         let qmk_info = QmkInfo {
             version: self.query(QmkVersionRequest(()))?.0.to_string(),
@@ -395,14 +394,14 @@ impl XapDevice {
             eeprom_reset_enabled: qmk_caps.contains(QmkCapabilitiesFlags::ReinitializeEeprom),
         };
 
+        let dyn_layer_count = self.state.config.dynamic_keymap.layer_count;
+
         let keymap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Keymap) {
             let keymap_caps = self.query(KeymapCapabilitiesRequest(()))?;
 
-            let layer_count = if keymap_caps.contains(KeymapCapabilitiesFlags::GetLayerCount) {
-                Some(self.query(KeymapGetLayerCountRequest(()))?.0)
-            } else {
-                None
-            };
+            let layer_count = (keymap_caps.contains(KeymapCapabilitiesFlags::GetLayerCount)
+                && dyn_layer_count > 0)
+                .then_some(dyn_layer_count);
 
             Some(KeymapInfo {
                 layer_count,
@@ -418,11 +417,9 @@ impl XapDevice {
         let remap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Remapping) {
             let keymap_caps = self.query(RemappingCapabilitiesRequest(()))?;
 
-            let layer_count = if keymap_caps.contains(RemappingCapabilitiesFlags::GetLayerCount) {
-                Some(self.query(RemappingGetLayerCountRequest(()))?.0)
-            } else {
-                None
-            };
+            let layer_count = (keymap_caps.contains(RemappingCapabilitiesFlags::GetLayerCount)
+                && dyn_layer_count > 0)
+                .then_some(dyn_layer_count);
 
             Some(RemapInfo {
                 layer_count,
@@ -637,5 +634,53 @@ impl XapDevice {
 
     pub fn secure_status(&self) -> &XapSecureStatus {
         &self.state.secure_status
+    }
+}
+
+/// QMK's info.json stores `usb.vid` / `usb.pid` as hex strings like
+/// `"0x1209"`. Parse them back to u16; non-parseable values become 0.
+fn parse_usb_hex_u16(s: &str) -> u16 {
+    let s = s.trim();
+    let stripped = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
+    u16::from_str_radix(stripped, 16).unwrap_or(0)
+}
+
+/// QMK encodes `usb.device_version` "MAJOR.MINOR.REVISION" as a BCD u16 in the
+/// format `0xJJMR` (JJ = major, M = minor, R = revision). See
+/// `qmk_firmware/lib/python/qmk/cli/generate/config_h.py` for the canonical
+/// conversion.
+fn parse_device_version_bcd(s: &str) -> u16 {
+    let mut parts = s.split('.');
+    let major: u8 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let minor: u8 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let revision: u8 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let major_bcd = (((major / 10) as u16) << 12) | (((major % 10) as u16) << 8);
+    let minor_bcd = ((minor & 0xF) as u16) << 4;
+    let revision_bcd = (revision & 0xF) as u16;
+    major_bcd | minor_bcd | revision_bcd
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn usb_hex_parses_prefixed_lowercase() {
+        assert_eq!(parse_usb_hex_u16("0x1209"), 0x1209);
+        assert_eq!(parse_usb_hex_u16("0X88BD"), 0x88BD);
+        assert_eq!(parse_usb_hex_u16("88bd"), 0x88BD);
+        assert_eq!(parse_usb_hex_u16(""), 0);
+        assert_eq!(parse_usb_hex_u16("garbage"), 0);
+    }
+
+    #[test]
+    fn device_version_matches_qmk_bcd_encoding() {
+        assert_eq!(parse_device_version_bcd("0.0.3"), 0x0003);
+        assert_eq!(parse_device_version_bcd("1.2.3"), 0x0123);
+        assert_eq!(parse_device_version_bcd("10.5.7"), 0x1057);
+        assert_eq!(parse_device_version_bcd(""), 0);
     }
 }
