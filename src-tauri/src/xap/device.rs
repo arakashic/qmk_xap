@@ -431,7 +431,13 @@ impl XapDevice {
             None
         };
 
-        let lighting_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Lighting) {
+        // Gate on the config blob's `features` block too: at least one board
+        // advertises the Lighting subsystem bit while the firmware build has
+        // no lighting features, which would burn a wasted LightingCapabilities
+        // query. The blob is the source of truth.
+        let lighting_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Lighting)
+            && self.state.config.features.has_lighting()
+        {
             let lighting_caps = self.query(LightingCapabilitiesRequest(()))?;
 
             let backlight_info = if lighting_caps.contains(LightingCapabilitiesFlags::Backlight) {
