@@ -489,8 +489,14 @@ export type BacklightGetEnabledEffectsResponse = number
 export type Config = {
     layouts: { [key in string]: Layout }
     matrix_size: Point2D
+    manufacturer?: string
+    keyboard_name?: string
+    usb?: UsbInfo
+    dynamic_keymap?: DynamicKeymapInfo
+    features?: Features
     encoder?: EncoderInfo
 }
+export type DynamicKeymapInfo = { layer_count?: number }
 /**
  * Mirrors QMK's `encoder` block in info.json (see
  * `qmk_firmware_ref/data/schemas/keyboard.jsonschema`). `rotary.len()` is the
@@ -499,6 +505,19 @@ export type Config = {
  */
 export type EncoderInfo = { enabled?: boolean; rotary?: RotaryEncoder[] }
 export type Error = string
+/**
+ * Subset of QMK's `features` block we care about for skipping XAP subsystem
+ * queries when the firmware was built without the relevant feature. The
+ * config blob is the authoritative source: boards have been observed
+ * advertising a subsystem bit while the build has no matching feature.
+ */
+export type Features = {
+    backlight?: boolean
+    rgblight?: boolean
+    rgb_matrix?: boolean
+    led_matrix?: boolean
+    encoder_map?: boolean
+}
 export type KeyCode = {
     code?: number
     key: string
@@ -710,6 +729,7 @@ export type SubgroupTemplate =
     | { kind: 'MT'; mods: string[] }
     | { kind: 'QK_MODS'; mods: string[] }
 export type UTF8String = string
+export type UsbInfo = { vid?: string; pid?: string; device_version?: string }
 export type XapCapabilitiesFlags = number
 export type XapConstants = {
     keycode_version: string
