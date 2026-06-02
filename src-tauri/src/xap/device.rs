@@ -1,668 +1,130 @@
+//! Thin hidapi transport adapter for the desktop runtime.
+//!
+//! All protocol/state-machine logic now lives in `xap_core`. This module owns
+//! only HID I/O: a `HidWriter` that enqueues outbound report bytes onto a
+//! channel, and a per-device worker thread (`spawn_worker`) that drains those
+//! writes onto the wire, performs non-blocking reads, and feeds inbound reports
+//! into the core via `ingest`.
+
 use std::{
-    collections::{hash_map::Entry, HashMap, VecDeque},
-    fmt::Debug,
-    io::{Cursor, Read},
-    sync::Arc,
-    time::{Duration, Instant},
-    vec,
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread::JoinHandle,
+    time::Duration,
 };
 
 use anyhow::{anyhow, Result};
-use binrw::{BinRead, BinWriterExt};
-use flate2::read::GzDecoder;
 use hidapi::{DeviceInfo, HidDevice};
-use log::{info, trace};
-use serde::Serialize;
-use specta::Type;
+use log::{error, trace};
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-use xap_specs::{
-    broadcast::{BroadcastRaw, BroadcastType, SecureStatusBroadcast},
-    constants::{keycode::KeyCode, XapConstants},
-    request::{RawRequest, XapRequest},
-    response::RawResponse,
-    token::Token,
-    XapSecureStatus,
-};
+use xap_core::transport::{IngestOutcome, XapWriter};
+use xap_core::XAP_REPORT_SIZE;
 
-use crate::{
-    aggregation::{
-        config::Config, keymap::MappedKeymap, KeymapInfo, LightingCapabilities, LightingInfo,
-        Point2D, Point3D, QmkInfo, RemapInfo, XapDeviceInfo, XapInfo,
-    },
-};
+const XAP_USAGE_PAGE: u16 = 0xFF51;
+const XAP_USAGE: u16 = 0x0058;
 
-use xap_specs::spec::{
-    keymap::{
-        KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
-        KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
-    },
-    lighting::{
-        backlight::{
-            BacklightCapabilitiesFlags, BacklightCapabilitiesRequest,
-            BacklightGetEnabledEffectsRequest,
-        },
-        rgblight::{
-            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
-            RgblightGetEnabledEffectsRequest,
-        },
-        rgbmatrix::{
-            RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
-            RgbmatrixGetEnabledEffectsRequest,
-        },
-        LightingCapabilitiesFlags, LightingCapabilitiesRequest,
-    },
-    qmk::{
-        QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
-        QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-        QmkHardwareIdentifierRequest, QmkProductNameRequest, QmkVersionRequest,
-    },
-    remapping::{
-        RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingGetLayerCountRequest,
-        RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
-    },
-    xap::{
-        XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
-        XapSecureStatusRequest, XapVersionRequest,
-    },
-};
-
-#[derive(Clone, Debug, Serialize, Type)]
-pub struct Keymap {
-    keys: Vec<Vec<Vec<KeymapKey>>>,
-    dimensions: Point3D,
+/// Outbound side of the transport: `submit` (in the core) calls `write_report`,
+/// which only enqueues the bytes onto the worker's channel. No HID I/O happens
+/// here, so submitting never blocks and never deadlocks against the core lock.
+pub struct HidWriter {
+    pub tx: Sender<Vec<u8>>,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Type)]
-pub struct KeymapKey {
-    pub code: KeyCode,
-    pub position: Point3D,
-}
-
-impl Keymap {
-    pub fn new(layers: u64, rows: u64, columns: u64) -> Self {
-        Self {
-            keys: vec![
-                vec![vec![KeymapKey::default(); columns as usize]; rows as usize];
-                layers as usize
-            ],
-            dimensions: Point3D {
-                z: layers,
-                y: rows,
-                x: columns,
-            },
-        }
-    }
-
-    pub fn remap_key(&mut self, key: &KeymapKey) -> Result<()> {
-        if key.position.z >= self.dimensions.z
-            || key.position.y >= self.dimensions.y
-            || key.position.x >= self.dimensions.x
-        {
-            anyhow::bail!(
-                "key position {:?} out of bounds for keymap with dimensions {:?}",
-                key.position,
-                self.dimensions
-            )
-        }
-
-        self.keys[key.position.z as usize][key.position.y as usize][key.position.x as usize] =
-            key.clone();
-
-        Ok(())
+impl XapWriter for HidWriter {
+    fn write_report(&self, report: &[u8]) -> Result<()> {
+        self.tx
+            .send(report.to_vec())
+            .map_err(|err| anyhow!("failed to enqueue HID report: {err}"))
     }
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
-pub struct XapDeviceState {
-    pub id: Uuid,
-    pub info: Option<XapDeviceInfo>,
-    #[serde(skip)]
-    pub keymap: Keymap,
-    pub config: Config,
-    pub config_json: String,
-    pub secure_status: XapSecureStatus,
+/// True if a HID interface advertises the XAP usage page + usage.
+pub fn is_xap_device(info: &DeviceInfo) -> bool {
+    info.usage_page() == XAP_USAGE_PAGE && info.usage() == XAP_USAGE
 }
 
-const XAP_REPORT_SIZE: usize = 64;
+/// Whether a freshly enumerated `candidate` is the same physical interface as a
+/// previously known device (port of the old `XapDevice::is_hid_device`). Used by
+/// the adapter to map enumeration results back to device ids.
+pub fn device_matches(known: &DeviceInfo, candidate: &DeviceInfo) -> bool {
+    candidate.path() == known.path()
+        && candidate.product_id() == known.product_id()
+        && candidate.vendor_id() == known.vendor_id()
+        && candidate.usage_page() == known.usage_page()
+        && candidate.usage() == known.usage()
+}
 
-#[derive(Debug)]
-pub struct XapDevice {
+/// Spawn the per-device HID I/O worker. Owns the `HidDevice`; runs until
+/// `running` is cleared.
+///
+/// Lock rule (R2-1): the `core` mutex is held ONLY across the single `ingest`
+/// call and the single `drain_broadcasts` call. It is NEVER held across
+/// `hid_device.read`/`write` or across `handle.emit`.
+pub fn spawn_worker(
     id: Uuid,
-    info: DeviceInfo,
     hid_device: HidDevice,
-    constants: Arc<XapConstants>,
-    state: XapDeviceState,
-    pub broadcast_queue: VecDeque<BroadcastRaw>,
-    responses: HashMap<Token, Option<RawResponse>>,
-}
+    write_rx: Receiver<Vec<u8>>,
+    core: Arc<Mutex<xap_core::XapClient>>,
+    waiters: Arc<Mutex<HashMap<Uuid, Sender<()>>>>,
+    handle: AppHandle,
+    running: Arc<AtomicBool>,
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        if let Err(err) = hid_device.set_blocking_mode(false) {
+            error!("device {id}: failed to set non-blocking mode: {err}");
+            return;
+        }
 
-impl XapDevice {
-    pub(crate) fn new(
-        info: DeviceInfo,
-        constants: Arc<XapConstants>,
-        hid_device: HidDevice,
-    ) -> Result<Self> {
-        // We are polling for reports, so we need to set the device to non-blocking mode otherwise
-        // we will block forever in case that there is no report to read
-        hid_device.set_blocking_mode(false)?;
+        while running.load(Ordering::SeqCst) {
+            // 1. Drain queued writes onto the wire.
+            while let Ok(report) = write_rx.try_recv() {
+                if let Err(err) = hid_device.write(&report) {
+                    error!("device {id}: HID write failed: {err}");
+                    return;
+                }
+            }
 
-        let id = Uuid::new_v4();
-        let state = XapDeviceState {
-            id,
-            info: None,
-            keymap: Keymap::new(0, 0, 0),
-            config: Config {
-                layouts: HashMap::new(),
-                matrix_size: Point2D { x: 0, y: 0 },
-                encoder: Default::default(),
-            },
-            config_json: String::new(),
-            secure_status: XapSecureStatus::Locked,
-        };
-
-        let mut device = Self {
-            id,
-            info,
-            hid_device,
-            state,
-            constants,
-            responses: HashMap::new(),
-            broadcast_queue: VecDeque::new(),
-        };
-        device.query_device_info()?;
-        device.query_keymap()?;
-        device.query_secure_status()?;
-        Ok(device)
-    }
-
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub fn state(&self) -> &XapDeviceState {
-        &self.state
-    }
-
-    pub fn xap_info(&self) -> XapDeviceInfo {
-        self.state
-            .info
-            .clone()
-            .expect("XAP device wasn't properly initialized")
-    }
-
-    pub fn keymap(&self) -> &Keymap {
-        &self.state.keymap
-    }
-
-    pub fn keymap_with_layout(&self, layout: String) -> Result<MappedKeymap> {
-        let layout = self
-            .state
-            .config
-            .layouts
-            .get(&layout)
-            .ok_or_else(|| anyhow!("layout {layout} not found in device {}", self.id))?;
-
-        let mut keymap = MappedKeymap::new(
-            self.state.keymap.dimensions.z,
-            self.state.keymap.dimensions.y,
-            self.state.keymap.dimensions.x,
-        );
-
-        for (_layer, keys) in self.keymap().keys.iter().enumerate() {
-            for (row, keys) in keys.iter().enumerate() {
-                for (column, key) in keys.iter().enumerate() {
-                    if let Some(entry) = layout.find(Point2D { x: column as u64, y: row as u64}) {
-                        keymap.insert(key.clone(), entry.clone());
+            // 2. Non-blocking read; feed any inbound report into the core.
+            let mut buf = [0u8; XAP_REPORT_SIZE];
+            match hid_device.read(&mut buf) {
+                Ok(0) => {}
+                Ok(_len) => {
+                    let outcome = { core.lock().unwrap().ingest(id, &buf) };
+                    match outcome {
+                        Ok(IngestOutcome::Response { .. }) => {
+                            if let Some(tx) = waiters.lock().unwrap().get(&id) {
+                                let _ = tx.send(());
+                            }
+                        }
+                        Ok(IngestOutcome::Broadcast) => {
+                            let events = { core.lock().unwrap().drain_broadcasts() };
+                            for (_eid, ev) in events {
+                                let _ = handle
+                                    .emit("xap", crate::rpc::events::XapEvent::from(ev));
+                            }
+                        }
+                        Ok(IngestOutcome::Unmatched) => {
+                            trace!("device {id}: unmatched inbound report");
+                        }
+                        Err(err) => {
+                            error!("device {id}: ingest failed: {err}");
+                        }
                     }
                 }
-            }
-        }
-
-        Ok(keymap)
-    }
-
-    pub fn is_hid_device(&self, candidate: &DeviceInfo) -> bool {
-        candidate.path() == self.info.path()
-            && candidate.product_id() == self.info.product_id()
-            && candidate.vendor_id() == self.info.vendor_id()
-            && candidate.usage_page() == self.info.usage_page()
-            && candidate.usage() == self.info.usage()
-    }
-
-    pub fn remap_key(&mut self, key: RemappingSetKeycodeArg) -> Result<()> {
-        self.query(RemappingSetKeycodeRequest(key.clone()))?;
-
-        let keycode = self.query_key(Point3D {
-            z: key.layer as u64,
-            y: key.row as u64,
-            x: key.column as u64,
-        })?;
-
-        self.state.keymap.remap_key(&keycode)?;
-
-        Ok(())
-    }
-
-    pub fn query_key(&mut self, position: Point3D) -> Result<KeymapKey> {
-        let code_raw = self.query(KeymapGetKeycodeRequest(position.into()))?;
-
-        let key = KeymapKey {
-            code: self.constants.get_keycode(code_raw.0),
-            position,
-        };
-
-        self.state.keymap.remap_key(&key)?;
-
-        Ok(key)
-    }
-
-    /// Read every (layer, encoder, clockwise) slot via the standard XAP encoder
-    /// route and decode each u16 against the keycode catalog. Returns a tensor
-    /// indexed `[layer][encoder][clockwise]` (clockwise: 0 = CCW, 1 = CW).
-    ///
-    /// Logs the total wallclock cost and the per-call average -- same shape as
-    /// the keymap fetch timing emitted from `XapDevice::new`, so encoder pages
-    /// are easy to compare against initial keymap load in profiling runs.
-    pub fn query_encoder_keymap(
-        &mut self,
-        layer_count: u8,
-        encoder_count: u8,
-    ) -> Result<Vec<Vec<Vec<KeyCode>>>> {
-        let t_start = Instant::now();
-        let total_queries = usize::from(layer_count) * usize::from(encoder_count) * 2;
-        let mut out: Vec<Vec<Vec<KeyCode>>> = Vec::with_capacity(layer_count.into());
-
-        for layer in 0..layer_count {
-            let mut layer_buf: Vec<Vec<KeyCode>> = Vec::with_capacity(encoder_count.into());
-            for encoder in 0..encoder_count {
-                let mut pair: Vec<KeyCode> = Vec::with_capacity(2);
-                for clockwise in 0..=1u8 {
-                    let raw = self.query(KeymapGetEncoderKeycodeRequest(
-                        KeymapGetEncoderKeycodeArg {
-                            layer,
-                            encoder,
-                            clockwise,
-                        },
-                    ))?;
-                    pair.push(self.constants.get_keycode(raw.0));
-                }
-                layer_buf.push(pair);
-            }
-            out.push(layer_buf);
-        }
-
-        let elapsed = t_start.elapsed();
-        let per_call = if total_queries > 0 {
-            elapsed / total_queries as u32
-        } else {
-            Duration::ZERO
-        };
-        info!(
-            "  fetch_encoder_keymap ({} layers x {} encoders x 2 = {} queries): {:?} total, {:?} avg/query",
-            layer_count, encoder_count, total_queries, elapsed, per_call,
-        );
-        Ok(out)
-    }
-
-    pub fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response> {
-        if let Some(xap_info) = &self.state.info {
-            if !T::xap_version() < xap_info.xap.version {
-                return Err(anyhow!(
-                    "can't do xap request [{:?}] with client of version {}",
-                    T::id(),
-                    xap_info.xap.version
-                ));
-            }
-        }
-
-        let request = RawRequest::new(request);
-        let mut report = [0; XAP_REPORT_SIZE + 1];
-
-        // Add trailing zero byte for the report Id to HID report
-        let mut writer = Cursor::new(&mut report[1..]);
-        writer.write_le(&request)?;
-
-        trace!("send XAP report with payload {:?}", &report[1..]);
-
-        self.responses.insert(request.token().clone(), None);
-        self.hid_device.write(&report)?;
-
-        let start = Instant::now();
-
-        loop {
-            let length = self.poll()?;
-
-            if length == 0 {
-                if start.elapsed() > Duration::from_secs(5) {
-                    return Err(anyhow!("timeout waiting for response to request"));
-                }
-                std::thread::sleep(Duration::from_millis(1));
-                continue;
-            }
-
-            if let Entry::Occupied(response) = self.responses.entry(request.token().clone()) {
-                if response.get().is_none() {
-                    continue;
-                }
-
-                let (_, response) = response.remove_entry();
-
-                return response
-                    .expect("response was just checked for None")
-                    .into_xap_response::<T>();
-            }
-        }
-    }
-
-    pub fn query_secure_status(&mut self) -> Result<XapSecureStatus> {
-        let status = self.query(XapSecureStatusRequest(()))?.0.into();
-        self.state.secure_status = status;
-        Ok(status)
-    }
-
-    fn query_device_info(&mut self) -> Result<()> {
-        let subsystems = self.query(XapEnabledSubsystemCapabilitiesRequest(()))?;
-
-        let xap_info = XapInfo {
-            version: self.query(XapVersionRequest(()))?.0,
-        };
-
-        let qmk_caps = self.query(QmkCapabilitiesRequest(()))?;
-        let board_ids = self.query(QmkBoardIdentifiersRequest(()))?;
-        // TODO: why do these strings have leading and trailing " characters -
-        // should be removed in QMK
-        let manufacturer = self
-            .query(QmkBoardManufacturerRequest(()))?
-            .0
-             .0
-            .trim_matches('"')
-            .to_owned();
-        let product_name = self
-            .query(QmkProductNameRequest(()))?
-            .0
-             .0
-            .trim_matches('"')
-            .to_owned();
-
-        self.query_config()?;
-
-        let hardware_id = self.query(QmkHardwareIdentifierRequest(()))?.0;
-
-        let qmk_info = QmkInfo {
-            version: self.query(QmkVersionRequest(()))?.0.to_string(),
-            board_ids,
-            manufacturer,
-            product_name,
-            hardware_id: format_hardware_id(hardware_id),
-            jump_to_bootloader_enabled: qmk_caps.contains(QmkCapabilitiesFlags::JumpToBootloader),
-            eeprom_reset_enabled: qmk_caps.contains(QmkCapabilitiesFlags::ReinitializeEeprom),
-        };
-
-        let keymap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Keymap) {
-            let keymap_caps = self.query(KeymapCapabilitiesRequest(()))?;
-
-            let layer_count = if keymap_caps.contains(KeymapCapabilitiesFlags::GetLayerCount) {
-                Some(self.query(KeymapGetLayerCountRequest(()))?.0)
-            } else {
-                None
-            };
-
-            Some(KeymapInfo {
-                layer_count,
-                get_keycode_enabled: keymap_caps.contains(KeymapCapabilitiesFlags::GetKeycode),
-                get_encoder_keycode_enabled: keymap_caps
-                    .contains(KeymapCapabilitiesFlags::GetEncoderKeycode),
-            })
-        } else {
-            info!("keymap subsystem not active!");
-            None
-        };
-
-        let remap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Remapping) {
-            let keymap_caps = self.query(RemappingCapabilitiesRequest(()))?;
-
-            let layer_count = if keymap_caps.contains(RemappingCapabilitiesFlags::GetLayerCount) {
-                Some(self.query(RemappingGetLayerCountRequest(()))?.0)
-            } else {
-                None
-            };
-
-            Some(RemapInfo {
-                layer_count,
-                set_keycode_enabled: keymap_caps.contains(RemappingCapabilitiesFlags::SetKeycode),
-                set_encoder_keycode_enabled: keymap_caps
-                    .contains(RemappingCapabilitiesFlags::SetEncoderKeycode),
-            })
-        } else {
-            None
-        };
-
-        let lighting_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Lighting) {
-            let lighting_caps = self.query(LightingCapabilitiesRequest(()))?;
-
-            let backlight_info = if lighting_caps.contains(LightingCapabilitiesFlags::Backlight) {
-                let backlight_caps = self.query(BacklightCapabilitiesRequest(()))?;
-
-                let effects =
-                    if backlight_caps.contains(BacklightCapabilitiesFlags::GetEnabledEffects) {
-                        self.query(BacklightGetEnabledEffectsRequest(()))?.0
-                    } else {
-                        0
-                    };
-
-                Some(LightingCapabilities::new(
-                    // Todo: implement backlight effects
-                    self.constants
-                        .led_matrix_modes
-                        .get_effect_map(effects as u64),
-                    backlight_caps.contains(BacklightCapabilitiesFlags::GetConfig),
-                    backlight_caps.contains(BacklightCapabilitiesFlags::SetConfig),
-                    backlight_caps.contains(BacklightCapabilitiesFlags::SaveConfig),
-                ))
-            } else {
-                None
-            };
-
-            let rgblight_info = if lighting_caps.contains(LightingCapabilitiesFlags::Rgblight) {
-                let rgblight_caps = self.query(RgblightCapabilitiesRequest(()))?;
-
-                let effects =
-                    if rgblight_caps.contains(RgblightCapabilitiesFlags::GetEnabledEffects) {
-                        self.query(RgblightGetEnabledEffectsRequest(()))?.0
-                    } else {
-                        0
-                    };
-
-                Some(LightingCapabilities::new(
-                    self.constants.rgblight_modes.get_effect_map(effects),
-                    rgblight_caps.contains(RgblightCapabilitiesFlags::GetConfig),
-                    rgblight_caps.contains(RgblightCapabilitiesFlags::SetConfig),
-                    rgblight_caps.contains(RgblightCapabilitiesFlags::SaveConfig),
-                ))
-            } else {
-                None
-            };
-
-            let rgbmatrix_info = if lighting_caps.contains(LightingCapabilitiesFlags::Rgbmatrix) {
-                let rgbmatrix_caps = self.query(RgbmatrixCapabilitiesRequest(()))?;
-
-                let effects =
-                    if rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::GetEnabledEffects) {
-                        self.query(RgbmatrixGetEnabledEffectsRequest(()))?.0
-                    } else {
-                        0
-                    };
-
-                Some(LightingCapabilities::new(
-                    self.constants.rgb_matrix_modes.get_effect_map(effects),
-                    rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::GetConfig),
-                    rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::SetConfig),
-                    rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::SaveConfig),
-                ))
-            } else {
-                None
-            };
-
-            Some(LightingInfo {
-                backlight: backlight_info,
-                rgblight: rgblight_info,
-                rgbmatrix: rgbmatrix_info,
-            })
-        } else {
-            None
-        };
-
-        self.state.info = Some(XapDeviceInfo {
-            xap: xap_info,
-            qmk: qmk_info,
-            keymap: keymap_info,
-            remap: remap_info,
-            lighting: lighting_info,
-        });
-
-        Ok(())
-    }
-
-    fn query_config(&mut self) -> Result<()> {
-        //  data size
-        let size = self.query(QmkConfigBlobLengthRequest(()))?.0;
-
-        //  all chunks and merge them in a Vec
-        let mut data: Vec<u8> = Vec::with_capacity(size as usize);
-        let mut offset: u16 = 0;
-        while offset < size {
-            let chunk = self.query(QmkConfigBlobChunkRequest(offset))?;
-            data.extend(chunk.0.into_iter());
-            offset += chunk.0.len() as u16;
-        }
-
-        // Trim trailing zeroes and convert Vec into array
-        let data = &data[..(size as usize)];
-
-        // Decompress data
-        let mut decoder = GzDecoder::new(data);
-        let mut decompressed = String::new();
-
-        decoder.read_to_string(&mut decompressed)?;
-
-        let value: serde_json::Value = serde_json::from_str(&decompressed)?;
-        self.state.config_json = serde_json::to_string_pretty(&value)?;
-        self.state.config = serde_json::from_value(value)?;
-
-        Ok(())
-    }
-
-    fn query_keymap(&mut self) -> Result<()> {
-        let layers: u64 = if let Some(keymap) = &self.xap_info().keymap {
-            keymap.layer_count.unwrap_or_default() as u64
-        } else {
-            0
-        };
-
-        let Point2D {
-            x: columns,
-            y: rows,
-        } = self.state.config.matrix_size;
-
-        self.state.keymap = Keymap::new(layers, rows, columns);
-
-        for layer in 0..layers {
-            for row in 0..rows {
-                for column in 0..columns {
-                    _ = self.query_key(Point3D {
-                        z: layer,
-                        y: row,
-                        x: column,
-                    })?;
+                Err(err) => {
+                    error!("device {id}: HID read failed: {err}");
+                    return;
                 }
             }
+
+            // 3. Idle.
+            std::thread::sleep(Duration::from_millis(1));
         }
-
-        Ok(())
-    }
-
-    pub fn poll(&mut self) -> Result<usize> {
-        let mut report = [0_u8; XAP_REPORT_SIZE];
-
-        let length = self.hid_device.read(&mut report)?;
-
-        if length == 0 {
-            return Ok(0);
-        }
-
-        let mut reader = Cursor::new(&report);
-        let token = Token::read_le(&mut reader)?;
-
-        if let Token::Broadcast = token {
-            let broadcast = BroadcastRaw::from_raw_report(&report)?;
-            trace!("received XAP broadcast {:?}", broadcast);
-
-            // TODO nicer way to handle this without clone?
-            if matches!(broadcast.broadcast_type(), BroadcastType::SecureStatus) {
-                broadcast
-                    .clone()
-                    .into_xap_broadcast::<SecureStatusBroadcast>()
-                    .map(|broadcast| {
-                        self.state.secure_status = broadcast.0;
-                    })?;
-            }
-
-            self.broadcast_queue.push_back(broadcast);
-        } else {
-            let response = RawResponse::from_raw_report(&report)?;
-            trace!(
-                "received XAP package with token {:?} and payload {:#?}",
-                response.token(),
-                response.payload()
-            );
-
-            match self.responses.entry(token) {
-                Entry::Occupied(mut request) => {
-                    if request.get().is_some() {
-                        trace!(
-                            "received duplicate response with token {:?}, discarding",
-                            response.token()
-                        );
-                        return Ok(0);
-                    }
-                    request.insert(Some(response));
-                }
-                Entry::Vacant(_) => {
-                    trace!(
-                        "received unsolicited response with token {:?}, discarding",
-                        response.token()
-                    );
-                    return Ok(0);
-                }
-            }
-        }
-
-        Ok(length)
-    }
-
-    pub fn secure_status(&self) -> &XapSecureStatus {
-        &self.state.secure_status
-    }
-}
-
-fn format_hardware_id(hardware_id: [u32; 4]) -> String {
-    hardware_id
-        .iter()
-        .map(|word| format!("0x{word:08X}"))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn hardware_id_uses_four_hex_words() {
-        assert_eq!(
-            format_hardware_id([0x00000001, 0x0000000A, 0x000000FF, 0x12345678]),
-            "0x00000001 0x0000000A 0x000000FF 0x12345678"
-        );
-    }
+    })
 }

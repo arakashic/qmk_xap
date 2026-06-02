@@ -33,3 +33,34 @@ pub enum XapEvent {
         id: Uuid,
     },
 }
+
+impl From<xap_core::RawBroadcastType> for RawBroadcastType {
+    fn from(value: xap_core::RawBroadcastType) -> Self {
+        match value {
+            xap_core::RawBroadcastType::Keyboard => RawBroadcastType::Keyboard,
+            xap_core::RawBroadcastType::User => RawBroadcastType::User,
+        }
+    }
+}
+
+impl From<xap_core::XapEvent> for XapEvent {
+    fn from(value: xap_core::XapEvent) -> Self {
+        match value {
+            xap_core::XapEvent::LogReceived { id, log } => XapEvent::LogReceived { id, log },
+            xap_core::XapEvent::SecureStatusChanged { id, secure_status } => {
+                XapEvent::SecureStatusChanged { id, secure_status }
+            }
+            xap_core::XapEvent::RawBroadcastReceived {
+                id,
+                broadcast_type,
+                payload,
+            } => XapEvent::RawBroadcastReceived {
+                id,
+                broadcast_type: broadcast_type.into(),
+                payload,
+            },
+            xap_core::XapEvent::NewDevice { id } => XapEvent::NewDevice { id },
+            xap_core::XapEvent::RemovedDevice { id } => XapEvent::RemovedDevice { id },
+        }
+    }
+}

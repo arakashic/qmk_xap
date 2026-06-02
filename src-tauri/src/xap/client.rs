@@ -1,218 +1,246 @@
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::{channel, Sender},
+        Arc, Mutex,
+    },
+    thread::JoinHandle,
+    time::Duration,
+};
 
 use anyhow::{anyhow, Result};
 use hidapi::{DeviceInfo, HidApi};
 use uuid::Uuid;
 
 use xap_specs::{
-    broadcast::{BroadcastRaw, BroadcastType, LogBroadcast},
-    constants::XapConstants,
+    constants::{keycode::KeyCode, XapConstants},
     request::XapRequest,
-    XapSecureStatus,
+    spec::remapping::RemappingSetKeycodeArg,
 };
 
-use crate::rpc::events::RawBroadcastType;
-use crate::XapEvent;
+use xap_core::aggregation::keymap::MappedKeymap;
+use xap_core::transport::XapQueryExecutor;
+use xap_core::XapDeviceState;
 
-use super::device::XapDevice;
+use tauri::AppHandle;
 
-const XAP_USAGE_PAGE: u16 = 0xFF51;
-const XAP_USAGE: u16 = 0x0058;
+use crate::rpc::events::XapEvent;
 
-fn broadcast_event(
-    id: Uuid,
-    secure_status: XapSecureStatus,
-    broadcast: BroadcastRaw,
-) -> Result<XapEvent> {
-    match broadcast.broadcast_type() {
-        BroadcastType::Log => {
-            let log: LogBroadcast = broadcast.into_xap_broadcast()?;
-            Ok(XapEvent::LogReceived { id, log: log.0 })
-        }
-        BroadcastType::SecureStatus => Ok(XapEvent::SecureStatusChanged { id, secure_status }),
-        BroadcastType::Keyboard => Ok(XapEvent::RawBroadcastReceived {
-            id,
-            broadcast_type: RawBroadcastType::Keyboard,
-            payload: broadcast.payload().to_vec(),
-        }),
-        BroadcastType::User => Ok(XapEvent::RawBroadcastReceived {
-            id,
-            broadcast_type: RawBroadcastType::User,
-            payload: broadcast.payload().to_vec(),
-        }),
-    }
-}
+use super::device::{device_matches, is_xap_device, spawn_worker, HidWriter};
 
 pub(crate) struct XapClient {
+    core: Arc<Mutex<xap_core::XapClient>>,
     hid: HidApi,
-    devices: HashMap<Uuid, XapDevice>,
     constants: Arc<XapConstants>,
+    writers: HashMap<Uuid, Sender<Vec<u8>>>,
+    waiters: Arc<Mutex<HashMap<Uuid, Sender<()>>>>,
+    workers: HashMap<Uuid, (JoinHandle<()>, Arc<AtomicBool>)>,
+    device_infos: HashMap<Uuid, DeviceInfo>,
+    handle: AppHandle,
 }
 
-impl Debug for XapClient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppState")
-            .field("device", &self.devices)
-            .finish()
+/// Adapter that lets the `xap_core::session` free functions run a synchronous
+/// query against this client's per-device submit/wait machinery.
+struct ClientExecutor<'a> {
+    client: &'a mut XapClient,
+    id: Uuid,
+}
+
+impl XapQueryExecutor for ClientExecutor<'_> {
+    fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response> {
+        self.client.query(self.id, request)
     }
 }
 
 impl XapClient {
-    pub fn new(xap_constants: XapConstants) -> Result<Self> {
+    pub fn new(constants: XapConstants, handle: AppHandle) -> Result<Self> {
+        let core = Arc::new(Mutex::new(xap_core::XapClient::new(Arc::new(
+            constants.clone(),
+        ))));
         Ok(Self {
-            devices: HashMap::new(),
+            core,
             hid: HidApi::new_without_enumerate()?,
-            constants: Arc::new(xap_constants),
+            constants: Arc::new(constants),
+            writers: HashMap::new(),
+            waiters: Arc::new(Mutex::new(HashMap::new())),
+            workers: HashMap::new(),
+            device_infos: HashMap::new(),
+            handle,
         })
-    }
-
-    pub fn poll_devices(&mut self) -> Result<Vec<XapEvent>> {
-        // TODO: implement as callback functions?
-        let mut events = Vec::new();
-        for device in self.devices.values_mut() {
-            device.poll()?;
-
-            while let Some(broadcast) = device.broadcast_queue.pop_front() {
-                events.push(broadcast_event(
-                    device.id(),
-                    *device.secure_status(),
-                    broadcast,
-                )?);
-            }
-        }
-
-        Ok(events)
-    }
-
-    pub fn query<T>(&mut self, id: Uuid, request: T) -> Result<T::Response>
-    where
-        T: XapRequest,
-    {
-        match self.devices.get_mut(&id) {
-            Some(device) => device.query(request),
-            None => Err(anyhow!("unknown device id: {id}")),
-        }
     }
 
     pub fn xap_constants(&self) -> XapConstants {
         self.constants.as_ref().clone()
     }
 
+    /// Submit a request, wait for the worker to signal a matching response, then
+    /// decode it. The `core` lock is held ONLY across `submit` (step 4) and
+    /// `take_response` (step 8), NEVER across the wait (step 5). `submit` only
+    /// enqueues bytes onto the worker channel, so it performs no HID I/O.
+    pub fn query<T>(&mut self, id: Uuid, request: T) -> Result<T::Response>
+    where
+        T: XapRequest,
+    {
+        let writer = HidWriter {
+            tx: self
+                .writers
+                .get(&id)
+                .ok_or_else(|| anyhow!("unknown device id: {id}"))?
+                .clone(),
+        };
+        let (tx, rx) = channel();
+        self.waiters.lock().unwrap().insert(id, tx);
+
+        let token = { self.core.lock().unwrap().device_mut(id)?.submit(&writer, request)? };
+
+        let waited = rx.recv_timeout(Duration::from_secs(5));
+        self.waiters.lock().unwrap().remove(&id);
+        waited.map_err(|_| anyhow!("timeout waiting for response to request"))?;
+
+        let resp = { self.core.lock().unwrap().device_mut(id)?.take_response::<T>(&token)? };
+        resp.ok_or_else(|| anyhow!("response missing after wakeup"))
+    }
+
+    pub fn device_state(&self, id: Uuid) -> Result<XapDeviceState> {
+        Ok(self.core.lock().unwrap().device(id)?.state().clone())
+    }
+
+    pub fn device_states(&self) -> Vec<XapDeviceState> {
+        self.core
+            .lock()
+            .unwrap()
+            .get_devices()
+            .iter()
+            .map(|device| device.state().clone())
+            .collect()
+    }
+
+    pub fn keymap_with_layout(&self, id: Uuid, layout: String) -> Result<MappedKeymap> {
+        self.core
+            .lock()
+            .unwrap()
+            .device(id)?
+            .keymap_with_layout(layout)
+    }
+
+    pub fn remap_key(&mut self, id: Uuid, arg: RemappingSetKeycodeArg) -> Result<()> {
+        let constants = Arc::clone(&self.constants);
+        let key = {
+            let mut exec = ClientExecutor { client: self, id };
+            xap_core::session::remap_key(&mut exec, &constants, arg)?
+        };
+        self.core
+            .lock()
+            .unwrap()
+            .device_mut(id)?
+            .state_mut()
+            .keymap
+            .remap_key(&key)
+    }
+
+    pub fn encoder_keymap_get(&mut self, id: Uuid) -> Result<Vec<Vec<Vec<KeyCode>>>> {
+        let state = self.device_state(id)?;
+        let layer_count = state
+            .info
+            .as_ref()
+            .and_then(|i| i.keymap.as_ref().and_then(|k| k.layer_count))
+            .or_else(|| {
+                state
+                    .info
+                    .as_ref()
+                    .and_then(|i| i.remap.as_ref().and_then(|r| r.layer_count))
+            })
+            .unwrap_or(0);
+        let encoder_count = u8::try_from(state.config.encoder.rotary.len()).unwrap_or(u8::MAX);
+        if layer_count == 0 || encoder_count == 0 {
+            return Ok(Vec::new());
+        }
+        let constants = Arc::clone(&self.constants);
+        let mut exec = ClientExecutor { client: self, id };
+        xap_core::session::query_encoder_keymap(&mut exec, &constants, layer_count, encoder_count)
+    }
+
     pub fn enumerate_xap_devices(&mut self) -> Result<Vec<XapEvent>> {
-        // TODO: implement as callback functions?
         let mut events = Vec::new();
-        // 1. Device already enumerated - don't start new capturing thread (announce nothing)
-        // 2. Device already enumerated but error occured - remove old device and restart device (announce removal + announce new device)
-        // 3. Device not enumerated - add device and start capturing (announce new device)
         self.hid.refresh_devices()?;
 
-        let xap_devices: Vec<DeviceInfo> = self
+        let candidates: Vec<DeviceInfo> = self
             .hid
             .device_list()
-            .filter(|info| info.usage_page() == XAP_USAGE_PAGE && info.usage() == XAP_USAGE)
+            .filter(|info| is_xap_device(info))
             .cloned()
             .collect();
 
-        self.devices.retain(|id, known_device| {
-            if xap_devices
-                .iter()
-                .any(|candidate| known_device.is_hid_device(candidate))
-            {
-                true
-            } else {
-                events.push(XapEvent::RemovedDevice { id: *id });
-                false
-            }
-        });
+        // Removal: any known device whose interface is gone.
+        let removed: Vec<Uuid> = self
+            .device_infos
+            .iter()
+            .filter(|(_, known)| {
+                !candidates
+                    .iter()
+                    .any(|candidate| device_matches(known, candidate))
+            })
+            .map(|(id, _)| *id)
+            .collect();
 
-        for device in xap_devices {
+        for id in removed {
+            if let Some((handle, running)) = self.workers.remove(&id) {
+                running.store(false, Ordering::SeqCst);
+                let _ = handle.join();
+            }
+            self.writers.remove(&id);
+            self.waiters.lock().unwrap().remove(&id);
+            self.device_infos.remove(&id);
+            self.core.lock().unwrap().remove_device(id);
+            events.push(XapEvent::RemovedDevice { id });
+        }
+
+        // Addition: any candidate not already matching a known device.
+        for candidate in candidates {
             if self
-                .devices
-                .iter()
-                .any(|(_, known_device)| known_device.is_hid_device(&device))
+                .device_infos
+                .values()
+                .any(|known| device_matches(known, &candidate))
             {
                 continue;
             }
 
-            let new_device = XapDevice::new(
-                device.clone(),
-                Arc::clone(&self.constants),
-                device.open_device(&self.hid)?,
-            )?;
-            let id = new_device.id();
-            self.devices.insert(id, new_device);
+            let id = Uuid::new_v4();
+            let hid_device = candidate.open_device(&self.hid)?;
+
+            let (wtx, wrx) = channel();
+            self.writers.insert(id, wtx);
+
+            let running = Arc::new(AtomicBool::new(true));
+            let worker = spawn_worker(
+                id,
+                hid_device,
+                wrx,
+                Arc::clone(&self.core),
+                Arc::clone(&self.waiters),
+                self.handle.clone(),
+                Arc::clone(&running),
+            );
+            self.workers.insert(id, (worker, running));
+            self.device_infos.insert(id, candidate);
+
+            self.core
+                .lock()
+                .unwrap()
+                .add_device(xap_core::XapDevice::new(id, Arc::clone(&self.constants)));
+
+            // Worker is now running, so the init queries get serviced.
+            let constants = Arc::clone(&self.constants);
+            let state = {
+                let mut exec = ClientExecutor { client: self, id };
+                xap_core::session::initialize(&mut exec, constants, id)?
+            };
+            self.core.lock().unwrap().device_mut(id)?.set_state(state);
+
             events.push(XapEvent::NewDevice { id });
         }
 
         Ok(events)
-    }
-
-    pub fn get_device(&self, id: &Uuid) -> Result<&XapDevice> {
-        self.devices
-            .get(id)
-            .ok_or(anyhow!("unknown device id: {id}"))
-    }
-
-    pub fn get_device_mut(&mut self, id: &Uuid) -> Result<&mut XapDevice> {
-        self.devices
-            .get_mut(id)
-            .ok_or(anyhow!("unknown device id: {id}"))
-    }
-
-    pub fn get_devices(&self) -> Vec<&XapDevice> {
-        self.devices.values().collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn maps_user_payload_to_raw_broadcast_event() {
-        let id = Uuid::new_v4();
-        let report = [
-            0xFF,
-            0xFF,
-            BroadcastType::User as u8,
-            0x03,
-            0x01,
-            0x2A,
-            0xFF,
-        ];
-        let broadcast = BroadcastRaw::from_raw_report(&report).expect("failed to read broadcast");
-
-        let event =
-            broadcast_event(id, XapSecureStatus::Locked, broadcast).expect("failed to map event");
-
-        match event {
-            XapEvent::RawBroadcastReceived {
-                id: event_id,
-                broadcast_type: RawBroadcastType::User,
-                payload,
-            } => {
-                assert_eq!(event_id, id);
-                assert_eq!(payload, vec![0x01, 0x2A, 0xFF]);
-            }
-            _ => panic!("expected raw user broadcast event"),
-        }
-    }
-
-    #[test]
-    fn maps_log_payload_to_decoded_log_event() {
-        let id = Uuid::new_v4();
-        let report = [0xFF, 0xFF, BroadcastType::Log as u8, 0x02, b'o', b'k'];
-        let broadcast = BroadcastRaw::from_raw_report(&report).expect("failed to read broadcast");
-
-        let event =
-            broadcast_event(id, XapSecureStatus::Locked, broadcast).expect("failed to map event");
-
-        match event {
-            XapEvent::LogReceived { id: event_id, log } => {
-                assert_eq!(event_id, id);
-                assert_eq!(log, "ok");
-            }
-            _ => panic!("expected decoded log event"),
-        }
     }
 }

@@ -2603,6 +2603,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-specta",
  "uuid",
+ "xap-core",
  "xap-specs",
 ]
 

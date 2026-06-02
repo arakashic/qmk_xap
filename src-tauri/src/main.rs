@@ -3,7 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-mod aggregation;
 mod codegen;
 mod rpc;
 mod xap;
@@ -80,16 +79,6 @@ impl App {
                 }
             }
 
-            match self.state.lock().unwrap().poll_devices() {
-                Ok(events) => {
-                    for event in events {
-                        self.emit_event(event);
-                    }
-                }
-                Err(err) => {
-                    error!("failed to poll XAP devices: {err}");
-                }
-            }
             sleep(std::time::Duration::from_millis(100));
         }
     }
@@ -140,11 +129,14 @@ fn main() -> Result<()> {
                 .path()
                 .resolve("../xap-specs/assets", BaseDirectory::Resource)?;
 
-            let state = Arc::new(Mutex::new(XapClient::new(XapConstants::new(xap_specs)?)?));
+            let handle = app.handle().clone();
+            let state = Arc::new(Mutex::new(XapClient::new(
+                XapConstants::new(xap_specs)?,
+                handle.clone(),
+            )?));
 
             app.manage(Arc::clone(&state));
 
-            let handle = app.handle().clone();
             std::thread::spawn(|| App::new(handle, state).start_event_loop());
 
             Ok(())

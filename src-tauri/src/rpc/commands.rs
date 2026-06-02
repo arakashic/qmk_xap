@@ -7,8 +7,8 @@ use xap_specs::constants::keycode::KeyCode;
 use xap_specs::constants::keycode_encoder::KeycodeTemplate;
 use xap_specs::constants::XapConstants;
 
-use crate::aggregation::keymap::MappedKeymap;
-use crate::xap::device::XapDeviceState;
+use xap_core::aggregation::keymap::MappedKeymap;
+use xap_core::XapDeviceState;
 use crate::xap::client::XapClient;
 use xap_specs::spec::remapping::RemappingSetKeycodeArg;
 
@@ -27,7 +27,7 @@ pub fn remap_key(
     arg: RemappingSetKeycodeArg,
     state: State<'_, Arc<Mutex<XapClient>>>,
 ) -> Result<(), Error> {
-    Ok(state.lock().unwrap().get_device_mut(&id)?.remap_key(arg)?)
+    Ok(state.lock().unwrap().remap_key(id, arg)?)
 }
 
 #[tauri::command]
@@ -40,8 +40,7 @@ pub fn keymap_get(
     state
         .lock()
         .unwrap()
-        .get_device(&id)?
-        .keymap_with_layout(layout)
+        .keymap_with_layout(id, layout)
         .map_err(Into::into)
 }
 
@@ -51,20 +50,13 @@ pub fn device_get(
     id: Uuid,
     state: State<'_, Arc<Mutex<XapClient>>>,
 ) -> Result<XapDeviceState, Error> {
-    Ok(state.lock().unwrap().get_device(&id)?.state().clone())
+    Ok(state.lock().unwrap().device_state(id)?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn devices_get(state: State<'_, Arc<Mutex<XapClient>>>) -> Vec<XapDeviceState> {
-    state
-        .lock()
-        .unwrap()
-        .get_devices()
-        .iter()
-        .map(|device| device.state())
-        .cloned()
-        .collect()
+    state.lock().unwrap().device_states()
 }
 
 #[tauri::command]
@@ -100,26 +92,9 @@ pub fn encoder_keymap_get(
     id: Uuid,
     state: State<'_, Arc<Mutex<XapClient>>>,
 ) -> Result<Vec<Vec<Vec<KeyCode>>>, Error> {
-    let mut client = state.lock().unwrap();
-    let device = client.get_device_mut(&id)?;
-    let layer_count = device
-        .state()
-        .info
-        .as_ref()
-        .and_then(|i| i.keymap.as_ref().and_then(|k| k.layer_count))
-        .or_else(|| {
-            device
-                .state()
-                .info
-                .as_ref()
-                .and_then(|i| i.remap.as_ref().and_then(|r| r.layer_count))
-        })
-        .unwrap_or(0);
-    let encoder_count = u8::try_from(device.state().config.encoder.rotary.len()).unwrap_or(u8::MAX);
-    if layer_count == 0 || encoder_count == 0 {
-        return Ok(Vec::new());
-    }
-    device
-        .query_encoder_keymap(layer_count, encoder_count)
+    state
+        .lock()
+        .unwrap()
+        .encoder_keymap_get(id)
         .map_err(Into::into)
 }
