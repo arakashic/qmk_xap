@@ -1,5 +1,5 @@
-import type { XapEvent } from '@generated/xap'
-import type { commands as tauriCommands } from '@generated/xap'
+import type { XapEvent } from '@generated/xap-types'
+import type { commands as tauriCommands } from '@generated/xap-tauri'
 
 export type XapCommands = typeof tauriCommands
 

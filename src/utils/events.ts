@@ -1,4 +1,4 @@
-import { XapEvent } from '@generated/xap'
+import { XapEvent } from '@generated/xap-types'
 import { addBackendListener, clearBackendListener } from '@/xap-runtime'
 import { eventBus } from '@/utils/eventbus'
 

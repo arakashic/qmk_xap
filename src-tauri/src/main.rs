@@ -4,6 +4,7 @@
 )]
 
 mod aggregation;
+mod codegen;
 mod rpc;
 mod xap;
 
@@ -116,6 +117,18 @@ fn main() -> Result<()> {
     }
 
     let (xap_handler, xap_events) = specta_builder.build()?;
+
+    if cfg!(debug_assertions) {
+        if let Ok(src) = std::fs::read_to_string("../src/generated/xap.ts") {
+            let (types, tauri) = codegen::split_generated(&src);
+            if let Err(err) = std::fs::write("../src/generated/xap-types.ts", types) {
+                error!("failed to write xap-types.ts: {err}");
+            }
+            if let Err(err) = std::fs::write("../src/generated/xap-tauri.ts", tauri) {
+                error!("failed to write xap-tauri.ts: {err}");
+            }
+        }
+    }
 
     tauri::Builder::default()
         .invoke_handler(xap_handler)

@@ -1,6 +1,6 @@
 import { listen, type Event, type UnlistenFn } from '@tauri-apps/api/event'
-import { commands } from '@generated/xap'
-import type { XapEvent } from '@generated/xap'
+import { commands } from '@generated/xap-tauri'
+import type { XapEvent } from '@generated/xap-types'
 import type { XapRuntime, BackendCapabilities, XapEventHandler } from './types'
 
 let unlisten: UnlistenFn | undefined
