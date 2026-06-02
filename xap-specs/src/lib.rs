@@ -9,6 +9,7 @@ pub mod broadcast;
 pub mod constants;
 pub mod request;
 pub mod response;
+pub mod spec;
 pub mod token;
 
 #[derive(Debug, Serialize, Clone, Copy, Type)]

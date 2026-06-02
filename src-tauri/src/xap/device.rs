@@ -30,39 +30,40 @@ use crate::{
         config::Config, keymap::MappedKeymap, KeymapInfo, LightingCapabilities, LightingInfo,
         Point2D, Point3D, QmkInfo, RemapInfo, XapDeviceInfo, XapInfo,
     },
-    xap::spec::{
-        keymap::{
-            KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
-            KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
+};
+
+use xap_specs::spec::{
+    keymap::{
+        KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
+        KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
+    },
+    lighting::{
+        backlight::{
+            BacklightCapabilitiesFlags, BacklightCapabilitiesRequest,
+            BacklightGetEnabledEffectsRequest,
         },
-        lighting::{
-            backlight::{
-                BacklightCapabilitiesFlags, BacklightCapabilitiesRequest,
-                BacklightGetEnabledEffectsRequest,
-            },
-            rgblight::{
-                RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
-                RgblightGetEnabledEffectsRequest,
-            },
-            rgbmatrix::{
-                RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
-                RgbmatrixGetEnabledEffectsRequest,
-            },
-            LightingCapabilitiesFlags, LightingCapabilitiesRequest,
+        rgblight::{
+            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
+            RgblightGetEnabledEffectsRequest,
         },
-        qmk::{
-            QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
-            QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-            QmkHardwareIdentifierRequest, QmkProductNameRequest, QmkVersionRequest,
+        rgbmatrix::{
+            RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
+            RgbmatrixGetEnabledEffectsRequest,
         },
-        remapping::{
-            RemappingCapabilitiesFlags, RemappingCapabilitiesRequest,
-            RemappingGetLayerCountRequest, RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
-        },
-        xap::{
-            XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
-            XapSecureStatusRequest, XapVersionRequest,
-        },
+        LightingCapabilitiesFlags, LightingCapabilitiesRequest,
+    },
+    qmk::{
+        QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
+        QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
+        QmkHardwareIdentifierRequest, QmkProductNameRequest, QmkVersionRequest,
+    },
+    remapping::{
+        RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingGetLayerCountRequest,
+        RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
+    },
+    xap::{
+        XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
+        XapSecureStatusRequest, XapVersionRequest,
     },
 };
 

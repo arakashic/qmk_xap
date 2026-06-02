@@ -9,7 +9,8 @@ use xap_specs::constants::XapConstants;
 
 use crate::aggregation::keymap::MappedKeymap;
 use crate::xap::device::XapDeviceState;
-use crate::xap::{client::XapClient, spec::remapping::RemappingSetKeycodeArg};
+use crate::xap::client::XapClient;
+use xap_specs::spec::remapping::RemappingSetKeycodeArg;
 
 use crate::rpc::spec::error::Error;
 

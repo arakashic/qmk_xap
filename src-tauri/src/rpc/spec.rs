@@ -22,8 +22,8 @@ pub mod xap {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::types::*;
-    use crate::xap::spec::xap::*;
+    use xap_specs::spec::types::*;
+    use xap_specs::spec::xap::*;
 
     #[tauri::command]
     #[specta::specta]
@@ -112,8 +112,8 @@ pub mod qmk {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::qmk::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::qmk::*;
+    use xap_specs::spec::types::*;
 
     #[tauri::command]
     #[specta::specta]
@@ -258,8 +258,8 @@ pub mod keyboard {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::keyboard::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::keyboard::*;
+    use xap_specs::spec::types::*;
 }
 
 #[allow(dead_code)]
@@ -273,8 +273,8 @@ pub mod user {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::types::*;
-    use crate::xap::spec::user::*;
+    use xap_specs::spec::types::*;
+    use xap_specs::spec::user::*;
 }
 
 #[allow(dead_code)]
@@ -288,8 +288,8 @@ pub mod keymap {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::keymap::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::keymap::*;
+    use xap_specs::spec::types::*;
 
     #[tauri::command]
     #[specta::specta]
@@ -357,8 +357,8 @@ pub mod remapping {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::remapping::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::remapping::*;
+    use xap_specs::spec::types::*;
 
     #[tauri::command]
     #[specta::specta]
@@ -426,8 +426,8 @@ pub mod lighting {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::lighting::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::lighting::*;
+    use xap_specs::spec::types::*;
 
     #[tauri::command]
     #[specta::specta]
@@ -453,8 +453,8 @@ pub mod lighting {
 
         use crate::rpc::spec::error::Error;
         use crate::xap::client::XapClient;
-        use crate::xap::spec::lighting::backlight::*;
-        use crate::xap::spec::types::*;
+        use xap_specs::spec::lighting::backlight::*;
+        use xap_specs::spec::types::*;
 
         #[tauri::command]
         #[specta::specta]
@@ -534,8 +534,8 @@ pub mod lighting {
 
         use crate::rpc::spec::error::Error;
         use crate::xap::client::XapClient;
-        use crate::xap::spec::lighting::rgblight::*;
-        use crate::xap::spec::types::*;
+        use xap_specs::spec::lighting::rgblight::*;
+        use xap_specs::spec::types::*;
 
         #[tauri::command]
         #[specta::specta]
@@ -615,8 +615,8 @@ pub mod lighting {
 
         use crate::rpc::spec::error::Error;
         use crate::xap::client::XapClient;
-        use crate::xap::spec::lighting::rgbmatrix::*;
-        use crate::xap::spec::types::*;
+        use xap_specs::spec::lighting::rgbmatrix::*;
+        use xap_specs::spec::types::*;
 
         #[tauri::command]
         #[specta::specta]
@@ -697,8 +697,8 @@ pub mod audio {
 
     use crate::rpc::spec::error::Error;
     use crate::xap::client::XapClient;
-    use crate::xap::spec::audio::*;
-    use crate::xap::spec::types::*;
+    use xap_specs::spec::audio::*;
+    use xap_specs::spec::types::*;
 
     #[tauri::command]
     #[specta::specta]

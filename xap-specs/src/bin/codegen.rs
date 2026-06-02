@@ -425,9 +425,9 @@ impl Route {
                 use serde::{{Serialize, Deserialize}};
                 use specta::Type;
 
-                use xap_specs::request::XapRequest;
-                use xap_specs::response::UTF8String;
-                use crate::xap::spec::types::*;
+                use crate::request::XapRequest;
+                use crate::response::UTF8String;
+                use crate::spec::types::*;
             "#
         )?;
 
@@ -447,8 +447,8 @@ impl Route {
 
                 use crate::xap::client::XapClient;
                 use crate::rpc::spec::error::Error;
-                use crate::xap::spec::types::*;
-                use crate::xap::spec::{module_path}::*;
+                use xap_specs::spec::types::*;
+                use xap_specs::spec::{module_path}::*;
                 "#
         )?;
 
@@ -771,7 +771,7 @@ fn get_default_spec_dir() -> &'static str {
 }
 
 fn get_default_xap_spec_file() -> &'static str {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../src-tauri/src/xap/spec.rs")
+    concat!(env!("CARGO_MANIFEST_DIR"), "/src/spec.rs")
 }
 
 fn get_default_tauri_rpc_file() -> &'static str {

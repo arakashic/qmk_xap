@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use xap_specs::constants::lighting::LightingEffect;
 
-use crate::xap::spec::{keymap::KeymapGetKeycodeArg, qmk::QmkBoardIdentifiersResponse};
+use xap_specs::spec::{keymap::KeymapGetKeycodeArg, qmk::QmkBoardIdentifiersResponse};
 
 #[derive(
     Default, Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, PartialOrd, Hash,
