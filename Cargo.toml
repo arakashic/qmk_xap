@@ -4,7 +4,8 @@ resolver = "2"
 members = [
     "src-tauri",
     "xap-specs",
-    "xap-core"
+    "xap-core",
+    "xap-wasm"
 ]
 
 [profile.release]
