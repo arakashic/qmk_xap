@@ -4747,6 +4747,8 @@ dependencies = [
  "flate2",
  "log",
  "serde",
+ "serde_json",
+ "specta",
  "thiserror",
  "uuid",
  "xap-specs",
