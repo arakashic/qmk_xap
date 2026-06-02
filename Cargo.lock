@@ -4739,6 +4739,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "xap-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "binrw",
+ "flate2",
+ "log",
+ "serde",
+ "thiserror",
+ "uuid",
+ "xap-specs",
+]
+
+[[package]]
 name = "xap-specs"
 version = "0.1.0"
 dependencies = [
