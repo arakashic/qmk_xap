@@ -9,7 +9,7 @@
     import router from '@/utils/routes'
     import { eventBus } from '@/utils/eventbus'
     import { XapDeviceState, XapEvent } from '@generated/xap'
-    import { commands } from '@generated/xap'
+    import { commands } from '@/utils/commands'
 
     const store = useXapDeviceStore()
     const broadcastStore = useBroadcastStore()
