@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
-import { XapDeviceState } from '@generated/xap'
-import { XapSecureStatus } from '@generated/xap'
+import { XapDeviceState } from '@generated/xap-types'
+import { XapSecureStatus } from '@generated/xap-types'
 
 export const useXapDeviceStore = defineStore('xap-device-store', {
     state: () => {

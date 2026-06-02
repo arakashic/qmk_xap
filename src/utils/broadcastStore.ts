@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import type { RawBroadcastType, XapDeviceState } from '@generated/xap'
+import type { RawBroadcastType, XapDeviceState } from '@generated/xap-types'
 import {
     appendCappedBroadcastMessage,
     BroadcastMessage,

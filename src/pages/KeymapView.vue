@@ -12,7 +12,7 @@
         Point3D,
         XapConstants,
         XapDeviceState,
-    } from '@generated/xap'
+    } from '@generated/xap-types'
     import { commands } from '@/utils/commands'
     import { notifyDeviceLocked, notifyError, notifyInfo } from '@/utils/utils'
     import { fitCurrentWindowToContent } from '@/utils/windowFit'

@@ -5,7 +5,7 @@
     import { storeToRefs } from 'pinia'
     import ColorPicker from '@radial-color-picker/vue-color-picker'
 
-    import { LightingEffect, RgbLightConfig, XapDeviceState } from '@generated/xap'
+    import { LightingEffect, RgbLightConfig, XapDeviceState } from '@generated/xap-types'
     import { useXapDeviceStore } from '@/utils/deviceStore'
     import { commands } from '@/utils/commands'
     import { notifyError } from '@/utils/utils'

@@ -3,8 +3,8 @@
     import { computed } from 'vue'
     import { useRoute } from 'vue-router'
     import { useXapDeviceStore } from '@/utils/deviceStore'
-    import { XapDeviceState } from '@generated/xap'
-    import { commands } from '@/utils/commands'
+    import { XapDeviceState } from '@generated/xap-types'
+    import { commands, backendCapabilities, connectDevice } from '@/utils/commands'
 
     const store = useXapDeviceStore()
     const { device, devices } = storeToRefs(store)
@@ -75,6 +75,21 @@
         </q-header>
         <q-page-container>
             <router-view v-if="device != null" />
+            <div
+                v-else
+                class="column flex-center"
+                style="min-height: 60vh; gap: 16px; padding: 24px; text-align: center"
+            >
+                <template v-if="backendCapabilities.unsupportedReason">
+                    <q-icon name="usb_off" size="48px" color="grey" />
+                    <div class="text-h6">{{ backendCapabilities.unsupportedReason }}</div>
+                </template>
+                <template v-else-if="backendCapabilities.requiresUserConnect">
+                    <q-icon name="usb" size="48px" color="primary" />
+                    <div class="text-h6">Connect an XAP keyboard</div>
+                    <q-btn color="primary" label="Connect" @click="connectDevice()" />
+                </template>
+            </div>
         </q-page-container>
         <q-page-sticky v-if="showSecureButton" position="bottom-right" :offset="[24, 24]">
             <q-btn

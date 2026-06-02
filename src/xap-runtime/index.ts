@@ -1,8 +1,9 @@
 import { tauriRuntime } from './tauri'
+import { browserRuntime } from './browser'
 import type { XapRuntime } from './types'
 
-// Phase 8 will branch here on whether Tauri is present vs browser.
-export const runtime: XapRuntime = tauriRuntime
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+export const runtime: XapRuntime = isTauri ? tauriRuntime : browserRuntime
 
 export const commands = runtime.commands
 export const backendCapabilities = runtime.capabilities

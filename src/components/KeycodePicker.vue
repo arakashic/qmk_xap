@@ -8,7 +8,7 @@
         LayerOp,
         SubgroupTemplate,
         XapConstants,
-    } from '@generated/xap'
+    } from '@generated/xap-types'
     import {
         MOD_MASK,
         modName,

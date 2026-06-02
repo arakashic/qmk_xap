@@ -1,7 +1,7 @@
 <script setup lang="ts">
     import { computed } from 'vue'
     import type { StyleValue } from 'vue'
-    import type { KeyCode } from '@generated/xap'
+    import type { KeyCode } from '@generated/xap-types'
     import KeyLabel from '@/components/KeyLabel.vue'
 
     const props = defineProps<{ codes: KeyCode[]; keySizeRem: number }>()

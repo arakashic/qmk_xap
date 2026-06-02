@@ -1,4 +1,4 @@
-import type { KeyCode, KeycodeTemplate } from '@generated/xap'
+import type { KeyCode, KeycodeTemplate } from '@generated/xap-types'
 
 // QMK modifier mask table (qmk_firmware_ref/quantum/modifiers.h).
 // Right-side flag is bit 4; bits 0-3 are CTRL/SHIFT/ALT/GUI.

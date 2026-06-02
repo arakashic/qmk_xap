@@ -1,4 +1,4 @@
-import type { RawBroadcastType, XapDeviceState } from '@generated/xap'
+import type { RawBroadcastType, XapDeviceState } from '@generated/xap-types'
 
 export const BROADCAST_HISTORY_LIMIT = 1000
 

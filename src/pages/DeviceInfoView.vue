@@ -2,7 +2,7 @@
     import { storeToRefs } from 'pinia'
 
     import { useXapDeviceStore } from '@/utils/deviceStore'
-    import { XapSecureStatus, XapDeviceState } from '@generated/xap'
+    import { XapSecureStatus, XapDeviceState } from '@generated/xap-types'
     import { commands } from '@/utils/commands'
     import { formatBcdVersion } from '@/utils/format'
     import type { Ref } from 'vue'

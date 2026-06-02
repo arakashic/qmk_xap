@@ -8,8 +8,8 @@
     import { useXapDeviceStore } from '@/utils/deviceStore'
     import router from '@/utils/routes'
     import { eventBus } from '@/utils/eventbus'
-    import { XapDeviceState, XapEvent } from '@generated/xap'
-    import { commands } from '@/utils/commands'
+    import { XapDeviceState, XapEvent } from '@generated/xap-types'
+    import { commands, backendCapabilities } from '@/utils/commands'
 
     const store = useXapDeviceStore()
     const broadcastStore = useBroadcastStore()
@@ -92,7 +92,11 @@
     })
 
     watchEffect(async () => {
-        if (device.value == null && devices.value.size == 0) {
+        if (
+            device.value == null &&
+            devices.value.size == 0 &&
+            !backendCapabilities.requiresUserConnect
+        ) {
             Loading.show({
                 message: 'Searching for XAP devices',
             })
