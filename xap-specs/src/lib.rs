@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use anyhow::anyhow;
 use binrw::{BinRead, BinReaderExt, BinResult, Endian};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 pub mod broadcast;
@@ -12,7 +12,7 @@ pub mod response;
 pub mod spec;
 pub mod token;
 
-#[derive(Debug, Serialize, Clone, Copy, Type)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Type)]
 pub enum XapSecureStatus {
     Locked,
     Unlocking,
