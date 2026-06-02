@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::{read_dir, read_to_string},
-    path::{Path, PathBuf},
-};
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Result};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
@@ -10,10 +6,10 @@ use serde_with::{serde_as, skip_serializing_none, NoneAsEmptyString};
 use specta::Type;
 
 use super::keycode_display::{
-    apply_overrides, build_name_to_code, build_view_for_version, read_keycode_display,
-    KeycodeDisplay, KeycodeView,
+    apply_overrides, build_name_to_code, build_view_for_version, KeycodeDisplay, KeycodeView,
 };
 use super::keycode_encoder::KeycodeTemplate;
+use super::AssetSource;
 
 const GENERATED_KEYCODES_PREFIX: &str = "keycodes_";
 const GENERATED_KEYCODES_SUFFIX: &str = ".generated.hjson";
@@ -188,9 +184,8 @@ struct KeyCodes {
     keycodes: HashMap<u16, KeyCode>,
 }
 
-pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyCodeCatalog> {
-    let path = path.as_ref();
-    let mut version_files = read_generated_keycode_files(path)?;
+pub(crate) fn read_xap_keycode_catalog(src: &AssetSource) -> Result<XapKeyCodeCatalog> {
+    let mut version_files = read_generated_keycode_files(src)?;
 
     if version_files.is_empty() {
         bail!("no generated keycode files found");
@@ -198,28 +193,29 @@ pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyC
 
     version_files.sort_by(|lhs, rhs| compare_keycode_versions(&lhs.0, &rhs.0));
 
-    let display_path = path.join(KEYCODE_DISPLAY_FILE);
-    let display = if display_path.is_file() {
-        let d = read_keycode_display(&display_path)?;
-        log::info!(
-            "loaded {} (target keycode version: {})",
-            display_path.display(),
-            d.target_keycode_version
-        );
-        Some(d)
-    } else {
-        log::warn!(
-            "keycode display file not found at {}; picker will use raw fallback view",
-            display_path.display()
-        );
-        None
+    let display = match src.read(KEYCODE_DISPLAY_FILE)? {
+        Some(raw) => {
+            let d: KeycodeDisplay = deser_hjson::from_str(&raw)?;
+            log::info!(
+                "loaded {} (target keycode version: {})",
+                KEYCODE_DISPLAY_FILE,
+                d.target_keycode_version
+            );
+            Some(d)
+        }
+        None => {
+            log::warn!(
+                "keycode display file {} not found; picker will use raw fallback view",
+                KEYCODE_DISPLAY_FILE
+            );
+            None
+        }
     };
 
     let mut versions = Vec::with_capacity(version_files.len());
     let mut versions_by_name = HashMap::new();
 
-    for (_, file) in version_files {
-        let raw_keycodes = read_to_string(file)?;
+    for (_, raw_keycodes) in version_files {
         let mut keycodes: KeyCodes = deser_hjson::from_str(&raw_keycodes)?;
         let version = keycodes.version.clone();
 
@@ -252,15 +248,10 @@ pub(crate) fn read_xap_keycode_catalog(path: impl AsRef<Path>) -> Result<XapKeyC
     })
 }
 
-fn read_generated_keycode_files(path: impl AsRef<Path>) -> Result<Vec<(String, PathBuf)>> {
+fn read_generated_keycode_files(src: &AssetSource) -> Result<Vec<(String, String)>> {
     let mut version_files = Vec::new();
 
-    for entry in read_dir(path)? {
-        let path = entry?.path();
-        let Some(file_name) = path.file_name().and_then(|file_name| file_name.to_str()) else {
-            continue;
-        };
-
+    for (file_name, contents) in src.entries()? {
         let Some(version) = file_name
             .strip_prefix(GENERATED_KEYCODES_PREFIX)
             .and_then(|file_name| file_name.strip_suffix(GENERATED_KEYCODES_SUFFIX))
@@ -272,7 +263,7 @@ fn read_generated_keycode_files(path: impl AsRef<Path>) -> Result<Vec<(String, P
             continue;
         }
 
-        version_files.push((version.to_owned(), path));
+        version_files.push((version.to_owned(), contents));
     }
 
     Ok(version_files)
@@ -497,8 +488,8 @@ mod test {
         )
         .expect("failed to write latest generated keycodes fixture");
 
-        let catalog =
-            read_xap_keycode_catalog(&temp_dir).expect("failed to read generated keycodes");
+        let catalog = read_xap_keycode_catalog(&AssetSource::Fs(temp_dir.clone()))
+            .expect("failed to read generated keycodes");
         let categories = catalog.latest_keycodes();
 
         assert_eq!(catalog.latest, "0.0.2");
@@ -531,9 +522,9 @@ mod test {
 
     #[test]
     pub fn shipped_assets_load_and_apply_overrides() {
-        let assets =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
-        let catalog = read_xap_keycode_catalog(&assets).expect("failed to load shipped assets");
+        let assets = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+        let catalog = read_xap_keycode_catalog(&AssetSource::Fs(assets))
+            .expect("failed to load shipped assets");
         let view = catalog.view_for_version(None);
         // Declared tabs must not be flagged as fallback when the remap matches.
         let basic = view

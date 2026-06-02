@@ -1,13 +1,11 @@
-use std::{
-    collections::HashMap,
-    fs::{self, read_to_string},
-    path::Path,
-};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use convert_case::{Case, Casing};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 use specta::Type;
+
+use super::AssetSource;
 
 #[derive(Clone, Deserialize, Serialize, Debug, Type)]
 pub struct LightingEffects {
@@ -61,22 +59,15 @@ pub struct LightingGroup {
 }
 
 pub(crate) fn read_xap_lighting_effects(
-    path: impl AsRef<Path>,
+    src: &AssetSource,
     effect_type: &str,
 ) -> Result<LightingEffects> {
-    for entry in fs::read_dir(path.as_ref())?.filter_map(|e| e.ok()) {
-        let path = entry.path();
-
-        if path.is_dir()
-            || path
-                .file_name()
-                .is_some_and(|filename| !filename.to_string_lossy().starts_with(effect_type))
-        {
+    for (file_name, contents) in src.entries()? {
+        if !file_name.starts_with(effect_type) {
             continue;
         }
 
-        let raw_hjson = read_to_string(&path)?;
-        return deser_hjson::from_str::<LightingEffects>(&raw_hjson).map_err(Into::into);
+        return deser_hjson::from_str::<LightingEffects>(&contents).map_err(Into::into);
     }
 
     Ok(LightingEffects {
