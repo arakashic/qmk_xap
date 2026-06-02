@@ -27,13 +27,15 @@ use flate2::read::GzDecoder;
 use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
+use xap_specs::constants::keycode_encoder::KeycodeTemplate;
+use xap_specs::constants::keycode::KeyCode;
 use xap_specs::constants::XapConstants;
 use xap_specs::request::XapRequest;
 
 use xap_specs::spec::{
     keymap::{
-        KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetKeycodeRequest,
-        KeymapGetLayerCountRequest,
+        KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
+        KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
     },
     lighting::{
         backlight::{
@@ -41,8 +43,8 @@ use xap_specs::spec::{
             BacklightGetEnabledEffectsRequest,
         },
         rgblight::{
-            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
-            RgblightGetEnabledEffectsRequest,
+            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest, RgblightGetConfigRequest,
+            RgblightGetEnabledEffectsRequest, RgblightSaveConfigRequest, RgblightSetConfigRequest,
         },
         rgbmatrix::{
             RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
@@ -50,14 +52,17 @@ use xap_specs::spec::{
         },
         LightingCapabilitiesFlags, LightingCapabilitiesRequest,
     },
+    types::RgbLightConfig,
     qmk::{
         QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
         QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-        QmkHardwareIdentifierRequest, QmkProductNameRequest, QmkVersionRequest,
+        QmkHardwareIdentifierRequest, QmkJumpToBootloaderRequest, QmkProductNameRequest,
+        QmkReinitializeEepromRequest, QmkVersionRequest,
     },
     remapping::{
         RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingGetLayerCountRequest,
-        RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
+        RemappingSetEncoderKeycodeArg, RemappingSetEncoderKeycodeRequest, RemappingSetKeycodeArg,
+        RemappingSetKeycodeRequest,
     },
     xap::{
         XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
@@ -78,6 +83,13 @@ fn jserr(e: anyhow::Error) -> JsValue {
 
 fn jserr_str(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
+}
+
+/// Serialize to a JsValue with maps rendered as plain JS objects (matching the
+/// desktop `serde_json` shape the UI expects, e.g. `config.layouts`), instead
+/// of serde-wasm-bindgen's default JS `Map`.
+fn to_js<T: serde::Serialize + ?Sized>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    value.serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
 }
 
 /// Copied byte-for-byte from `xap_core::device::format_hardware_id`, which is
@@ -192,7 +204,7 @@ impl XapWasmClient {
         if let Some(events) = events {
             let emit = self.inner.borrow().emit_event.clone();
             for (_id, ev) in events {
-                let value = serde_wasm_bindgen::to_value(&ev)?;
+                let value = to_js(&ev)?;
                 emit.call1(&JsValue::NULL, &value)?;
             }
         }
@@ -215,7 +227,7 @@ impl XapWasmClient {
                     .map_err(jserr)?
                     .set_state(state.clone());
             }
-            serde_wasm_bindgen::to_value(&state).map_err(jserr_str)
+            to_js(&state).map_err(jserr_str)
         })
     }
 
@@ -228,7 +240,7 @@ impl XapWasmClient {
             .into_iter()
             .map(|d| d.state().clone())
             .collect();
-        serde_wasm_bindgen::to_value(&states).map_err(jserr_str)
+        to_js(&states).map_err(jserr_str)
     }
 
     /// Synchronous getter: one device's current state.
@@ -236,7 +248,7 @@ impl XapWasmClient {
         let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
         let inner = self.inner.borrow();
         let state = inner.client.device(id).map_err(jserr)?.state().clone();
-        serde_wasm_bindgen::to_value(&state).map_err(jserr_str)
+        to_js(&state).map_err(jserr_str)
     }
 
     /// Pure (no I/O), but returns a Promise for API uniformity.
@@ -253,7 +265,7 @@ impl XapWasmClient {
                     .keymap_with_layout(layout)
                     .map_err(jserr)?
             };
-            serde_wasm_bindgen::to_value(&mapped).map_err(jserr_str)
+            to_js(&mapped).map_err(jserr_str)
         })
     }
 
@@ -286,7 +298,7 @@ impl XapWasmClient {
                 .keymap
                 .remap_key(&key)
                 .map_err(jserr)?;
-            serde_wasm_bindgen::to_value(&key).map_err(jserr_str)
+            to_js(&key).map_err(jserr_str)
         })
     }
 
@@ -305,6 +317,172 @@ impl XapWasmClient {
             let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
             query(inner, id, XapSecureLockRequest(())).await?;
             Ok(JsValue::UNDEFINED)
+        })
+    }
+
+    // --- Pure (synchronous) getters -----------------------------------------
+
+    /// JS `decodeKeycode(code)` -> KeyCode.
+    pub fn decode_keycode(&self, code: u16) -> Result<JsValue, JsValue> {
+        let inner = self.inner.borrow();
+        let keycode = inner.constants.get_keycode(code);
+        to_js(&keycode).map_err(jserr_str)
+    }
+
+    /// JS `keycodeTemplateEncode(template)` -> u16.
+    pub fn keycode_template_encode(&self, template: JsValue) -> Result<JsValue, JsValue> {
+        let template: KeycodeTemplate =
+            serde_wasm_bindgen::from_value(template).map_err(jserr_str)?;
+        let code = template
+            .encode()
+            .ok_or_else(|| JsValue::from_str("keycode template is incomplete"))?;
+        to_js(&code).map_err(jserr_str)
+    }
+
+    /// JS `xapConstantsGet()` -> XapConstants.
+    pub fn xap_constants(&self) -> Result<JsValue, JsValue> {
+        let inner = self.inner.borrow();
+        to_js(inner.constants.as_ref()).map_err(jserr_str)
+    }
+
+    // --- Single-request passthroughs ----------------------------------------
+
+    /// JS `keymapGetEncoderKeycode(id, {layer,encoder,clockwise})` -> u16.
+    pub fn keymap_get_encoder_keycode(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let arg: KeymapGetEncoderKeycodeArg =
+                serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
+            let resp = query(inner, id, KeymapGetEncoderKeycodeRequest(arg)).await?;
+            to_js(&resp.0).map_err(jserr_str)
+        })
+    }
+
+    /// JS `remappingSetEncoderKeycode(id, arg)`.
+    pub fn remapping_set_encoder_keycode(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let arg: RemappingSetEncoderKeycodeArg =
+                serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
+            query(inner, id, RemappingSetEncoderKeycodeRequest(arg)).await?;
+            Ok(JsValue::NULL)
+        })
+    }
+
+    /// JS `qmkJumpToBootloader(id)`.
+    pub fn qmk_jump_to_bootloader(&self, device_id: String) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let resp = query(inner, id, QmkJumpToBootloaderRequest(())).await?;
+            to_js(&resp.0).map_err(jserr_str)
+        })
+    }
+
+    /// JS `qmkReinitializeEeprom(id)`.
+    pub fn qmk_reinitialize_eeprom(&self, device_id: String) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let resp = query(inner, id, QmkReinitializeEepromRequest(())).await?;
+            to_js(&resp.0).map_err(jserr_str)
+        })
+    }
+
+    /// JS `rgblightGetConfig(id)` -> RgbLightConfig.
+    pub fn rgblight_get_config(&self, device_id: String) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let resp = query(inner, id, RgblightGetConfigRequest(())).await?;
+            to_js(&resp).map_err(jserr_str)
+        })
+    }
+
+    /// JS `rgblightSetConfig(id, RgbLightConfig)`.
+    pub fn rgblight_set_config(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            let arg: RgbLightConfig = serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
+            query(inner, id, RgblightSetConfigRequest(arg)).await?;
+            Ok(JsValue::NULL)
+        })
+    }
+
+    /// JS `rgblightSaveConfig(id)`.
+    pub fn rgblight_save_config(&self, device_id: String) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+            query(inner, id, RgblightSaveConfigRequest(())).await?;
+            Ok(JsValue::NULL)
+        })
+    }
+
+    // --- Async orchestration ------------------------------------------------
+
+    /// JS `encoderKeymapGet(id)` -> KeyCode[][][]. Sweeps every
+    /// (layer, encoder, clockwise) slot, decoding each against the catalog.
+    pub fn encoder_keymap_get(&self, device_id: String) -> js_sys::Promise {
+        let inner = self.inner.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
+
+            let (layer_count, encoder_count) = {
+                let inner_ref = inner.borrow();
+                let state = inner_ref.client.device(id).map_err(jserr)?.state();
+                let layer_count = state
+                    .info
+                    .as_ref()
+                    .and_then(|i| i.keymap.as_ref().and_then(|k| k.layer_count))
+                    .or_else(|| {
+                        state
+                            .info
+                            .as_ref()
+                            .and_then(|i| i.remap.as_ref().and_then(|r| r.layer_count))
+                    })
+                    .unwrap_or(0);
+                let encoder_count =
+                    u8::try_from(state.config.encoder.rotary.len()).unwrap_or(u8::MAX);
+                (layer_count, encoder_count)
+            };
+
+            if layer_count == 0 || encoder_count == 0 {
+                return to_js(&Vec::<Vec<Vec<KeyCode>>>::new())
+                    .map_err(jserr_str);
+            }
+
+            let mut out: Vec<Vec<Vec<KeyCode>>> = Vec::with_capacity(layer_count.into());
+            for layer in 0..layer_count {
+                let mut layer_buf: Vec<Vec<KeyCode>> = Vec::with_capacity(encoder_count.into());
+                for encoder in 0..encoder_count {
+                    let mut pair: Vec<KeyCode> = Vec::with_capacity(2);
+                    for clockwise in 0..=1u8 {
+                        let raw = query(
+                            inner.clone(),
+                            id,
+                            KeymapGetEncoderKeycodeRequest(KeymapGetEncoderKeycodeArg {
+                                layer,
+                                encoder,
+                                clockwise,
+                            }),
+                        )
+                        .await?;
+                        let code = {
+                            let inner_ref = inner.borrow();
+                            inner_ref.constants.get_keycode(raw.0)
+                        };
+                        pair.push(code);
+                    }
+                    layer_buf.push(pair);
+                }
+                out.push(layer_buf);
+            }
+
+            to_js(&out).map_err(jserr_str)
         })
     }
 }
