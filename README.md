@@ -1,205 +1,195 @@
 # QMK XAP Client
 
-This repository contains the (experimental) [QMK XAP](https://github.com/qmk/qmk_firmware/pull/13733) protocol client. It is build using the following base technologies:
+This repository contains the (experimental) [QMK XAP](https://github.com/qmk/qmk_firmware/pull/13733) protocol client.
 
--   [Tauri](https://tauri.app/) as it's runtime
--   [Vue.js](https://vuejs.org/) as the frontend framework
--   [Quasar](https://quasar.dev/) as the ui component library
--   [Rust](https://www.rust-lang.org/) for the backend
--   [Typescript](https://www.typescriptlang.org/) for the frontend
+It ships as **two front-ends over one shared Rust core**:
 
-## Architecture/Design
+- a **desktop app** ([Tauri](https://tauri.app/) + [hidapi](https://github.com/ruabmbua/hidapi-rs)), and
+- a **browser web app** (the same Rust core compiled to WebAssembly, talking to keyboards over [WebHID](https://developer.mozilla.org/en-US/docs/Web/API/WebHID_API)).
 
-```mermaid
+Both run the exact same [Vue 3](https://vuejs.org/) / [Quasar](https://quasar.dev/) UI and the same XAP protocol logic; only the transport differs.
+
+Base technologies:
+
+-   [Vue 3](https://vuejs.org/) + [Quasar](https://quasar.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/) — the shared frontend
+-   [Rust](https://www.rust-lang.org/) — the shared XAP core and both transport adapters
+-   [Tauri 2](https://tauri.app/) + [tauri-specta](https://github.com/oscartbeaumont/tauri-specta) + [hidapi](https://github.com/ruabmbua/hidapi-rs) — the desktop runtime
+-   [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) + WebHID — the browser runtime
+
+## Architecture / Design
+
+The guiding principle is that **all authoritative XAP logic lives once, in Rust, with no knowledge of how reports get on or off the wire**. Each platform supplies a thin transport adapter; the UI never talks to a transport directly. The frontend sees a **single command/event surface** (via the `xap-runtime` facade) and is satisfied by **either backend** with identical JSON-shaped values — so the same UI drives the desktop and the browser unchanged.
+
+![Architecture: one shared frontend over two backends, both building on a central xap-core](docs/arch.svg)
+
+<!-- docs/arch.svg is a hand-laid-out export of the mermaid source below; keep them in sync. -->
+<details>
+<summary>Diagram source (mermaid)</summary>
+
+```
+---
+config:
+  layout: elk
+---
 flowchart TD
-    subgraph QMK XAP UI
-        subgraph Frontend
-            vue[Vue.js]
-        end
+    runtime["<b>Shared Frontend</b><br/>Vue 3 / Quasar / TypeScript<br/>(via the xap-runtime facade)"]
 
-        subgraph Backend
-            Tauri
-            client[XAP Client]
-        end
-    end
-    
-    subgraph Devices
-        dev1[XAP Device 1]
-        dev2[XAP Device 2]
+    subgraph DesktopBE["Desktop Backend (Tauri)"]
+        tauri["Tauri commands / events"]
+        adapter["hidapi adapter"]
+        worker["per-device HID I/O worker thread"]
+        tauri <--> worker
+        worker <--> adapter
     end
 
-    vue <-->|JSON RPC - <b><i>*1</i></b>| Tauri
+    subgraph BrowserBE["Browser Backend (WASM)"]
+        wasm["xap-wasm<br/>Promise bridge"]
+        webhid["WebHID adapter"]
+        wasm <--> webhid
+    end
 
-    Tauri <--> client
+    core["<b>xap-core</b><br/>shared, transport-independent<br/>XAP state machine + protocol orchestration"]
 
-    client <-->|Usb Hid - <b><i>*2</i></b>|dev1
-    client <-->|Usb Hid - <b><i>*2</i></b>|dev2
+    dev["XAP device(s)"]
+
+    runtime <-->|"JSON commands / events"| tauri
+    runtime <-->|"JSON commands / events"| wasm
+
+    adapter <--> core
+    worker <--> core
+    webhid <--> core
+
+    worker <-->|"USB raw HID"| dev
+    webhid <-->|"WebHID"| dev
 ```
 
-**(1) JSON RPC:**
+</details>
 
-frontend and backend communicate over remote procedure calls using JSON as it's data exchange format. These calls come in two flavors:
+Both backends present the same JSON command/event interface to the frontend and build on the same central `xap-core`; they differ only in transport — `hidapi` on the desktop, WebHID in the browser.
 
--   [Commands](https://tauri.app/v1/guides/features/command/): are synchronous and follow a request and response model. Only the frontend can initiate these commands and the backend responds with the help of pre-defined Command handlers. The XAP client makes heavy use of these commands to provide well defined endpoints that either query data from the attached XAP devices or run actions on these devices.
--   [Events](https://tauri.app/v1/guides/features/events/): are asynchronous and do not provide any feedback from the event listeners. Both the frontend and backend can listen to and emit events. The XAP clients backend signals state changes e.g. Newly attached devices or Removed devices to the frontend with these.
+### The shared core (`xap-core`)
 
-All serialization from Rust structs into JSON objects is done automatically with the help of the [Serde](https://serde.rs/) framework and it's JSON serializer implementation [serde_json](https://github.com/serde-rs/json). The structure of the JSON objects is derived from the layout of the Rust structs.
+`xap-core` is a synchronous, **non-blocking, push-driven** state machine. It owns the XAP protocol but never performs I/O, spawns threads, reads the clock, or links against `hidapi`, `tauri`, or the DOM. That is what makes it usable from a blocking desktop thread and a single-threaded browser alike, and what lets it compile to `wasm32-unknown-unknown`.
 
-In order to keep the backend structs and frontend TS types in synchronization and automatically propagate changes in the datatype [ts-rs](https://github.com/Aleph-Alpha/ts-rs) is used to generate matching Typescript interface definitions from the Rust structs.
+The transport boundary is three operations:
 
-As an example the `RGBMatrixConfig` struct is annotated with the [`derive`](https://doc.rust-lang.org/book/appendix-03-derivable-traits.html) attribute and specifically derive serde's `Serialize` and ts-rs's `TS` Trait.
+- `submit(writer, request) -> Token` — frame a request and hand the bytes to the adapter's writer; record the in-flight token. It does **not** wait.
+- `ingest(report) -> IngestOutcome` — feed one inbound report in; correlate it to the pending request or decode a broadcast (applying secure-status side effects).
+- `take_response::<T>(token) -> Option<T::Response>` — decode the matched response.
 
-```Rust
-#[derive(BinWrite, BinRead, Debug, TS, Serialize, Deserialize)]
-#[ts(export)]
-pub struct RGBMatrixConfig {
-    pub enable: u8,
-    pub mode: u8,
-    pub hue: u8,
-    pub sat: u8,
-    pub val: u8,
-    pub speed: u8,
-    pub flags: u8,
-}
+Adapters own all waiting and all I/O. Two small traits express the seam (`src/transport.rs`):
+
+- `XapWriter` — the core calls this to put report bytes on the wire.
+- `XapQueryExecutor` — a synchronous `query::<T>()` the *adapter* implements (submit + wait + decode). The multi-step protocol orchestration in `src/session.rs` (device-info aggregation, gzip config-blob fetch/parse, keymap and encoder sweeps, remapping, secure status) is generic over this executor, so the request sequence and capability gating live in exactly one place. The browser, which cannot block, re-uses every pure piece and drives the same sequence asynchronously.
+
+`xap-core/src/client.rs` keeps a registry of devices by [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier) and routes inbound reports and broadcast events. Aggregated, frontend-facing types (`XapDeviceInfo`, `Config`, the keymap, etc.) live under `xap-core/src/aggregation/`.
+
+### The desktop adapter (`src-tauri`)
+
+The desktop app drives the core over `hidapi`. Because a `hidapi` `HidDevice` is neither `Clone` nor `Sync`, each connected device is owned by a dedicated **HID I/O worker thread** that is the sole reader *and* writer: it drains a write queue and non-blocking-reads reports, feeding each one into `core.ingest(...)`. The `XapWriter` is just a channel into that worker. A Tauri command calls `submit()` (which enqueues the write) and then blocks on a per-token channel that the worker fires when the matching response arrives — the client lock is held only across `submit`/`ingest`/`take_response`, never across the wait or HID I/O.
+
+The frontend↔backend bridge is unchanged in spirit: typed [Tauri commands](https://tauri.app/) for request/response and events for asynchronous state changes (new/removed device, secure-status change, broadcasts).
+
+### The browser adapter (`xap-wasm` + WebHID)
+
+`xap-wasm` is a `wasm-bindgen` wrapper that bridges the core's push model to JS Promises. The browser opens a device through `navigator.hid` (behind a user-gesture "Connect" button), forwards each `inputreport` event into `handle_input_report(...)`, and exposes the device's `sendReport` as the core's writer. App-level operations (`device_get`, `keymap_get`, `remap_key`, the rgblight/encoder/qmk routes, secure lock/unlock, …) are returned as Promises that resolve when the matching report is ingested.
+
+### The frontend runtime facade (`src/xap-runtime`)
+
+The UI imports a single facade and never references Tauri or WebHID directly. At load it picks the implementation:
+
+```ts
+const isTauri = '__TAURI_INTERNALS__' in window
+export const runtime = isTauri ? tauriRuntime : browserRuntime
 ```
 
-With these, the following Typescript Interface are automatically generated:
+`tauri.ts` wires the generated Tauri commands/events; `browser.ts` + `webhid.ts` wire `xap-wasm` over WebHID and expose the same command surface plus a `connectDevice()` gesture. Both yield the identical `Result`-shaped values the views consume, so the pages are transport-agnostic.
 
-```Typescript
-export interface RGBMatrixConfig {
-    enable: number,
-    mode: number,
-    hue: number,
-    sat: number,
-    val: number,
-    speed: number,
-    flags: number,
-}
-```
+### Generated code
 
-...which can then directly be used in the for backend for Tauri Command and Events:
-
-```Rust
-#[tauri::command]
-pub(crate) async fn rgbmatrix_config_get(
-    id: Uuid,
-    state: State<'_, Arc<Mutex<XAPClient>>>,
-) -> XAPResult<RGBMatrixConfig> {
-    state.lock().query(id, RGBMatrixConfigGet {})
-}
-```
-
-and in the frontend to invoke said handler (two already wrapped in a helper function):
-
-```Typescript
-export async function getConfig(id: string): Promise<RGBMatrixConfig> {
-  return await querybackend('rgbmatrix_config_get', id, null)
-}
-```
-
-Both the backend and frontend handler have to be written manually at this point, but should ideally be auto generated where it makes sense e.g. whenever data is passed directly from the XAP device to the frontend. Other handlers that involve aggregation and processing of data from the XAP device at least need to be implemented by hand in the backend.
-
-**(2) USB HID:**
-
-To communicate with attached XAP devices over USB RAW HID the backend uses the [hidapi-rs](https://github.com/ruabmbua/hidapi-rs) library. The client supports multiple simultaneous connected devices and distinguishes these by attaching an [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier) when opening a new device.
-
-The two main structs two mention here are:
-
--   `XAPDevice` represents exactly one physically attached XAP device. Every device spawns a capturing thread that reacts to incoming responses for requests or passes broadcast messages to an event loop.
--   `XAPClient` detects new XAP devices and manages existing ones. It also forwards requests to the individual devices with the help of an UUID identifier.
-
-The parsing of the RAW XAP HID packets into Rust structs is done with the help of the [binrw](https://binrw.rs/) crate which derives C-ABI compatible binary readers and writers from the Rust struct layout or can be implemented by hand for special cases like the XAP `Token` and `String` types.
-
-For example the `ResponseRaw` and again `RGBMatrixConfig` struct, the later is constructed by the `XAPDevice` out of the `payload` member of the `ResponseRaw` struct:
-
-```Rust
-#[binread]
-#[derive(Debug)]
-pub struct ResponseRaw {
-    token: Token,
-    flags: ResponseFlags,
-    #[br(temp)]
-    payload_len: u8,
-    #[br(count = payload_len)]
-    payload: Vec<u8>,
-}
-
-#[derive(BinWrite, BinRead, Debug, TS, Serialize, Deserialize)]
-#[ts(export)]
-pub struct RGBMatrixConfig {
-    pub enable: u8,
-    pub mode: u8,
-    pub hue: u8,
-    pub sat: u8,
-    pub val: u8,
-    pub speed: u8,
-    pub flags: u8,
-}
-```
+- **Protocol route types** are generated from the HJSON specs in `xap-specs/assets` into `xap-specs` (shared by all crates); the matching Tauri RPC command wrappers are generated into `src-tauri`.
+- **TypeScript types** are produced by `tauri-specta` on a debug desktop build and split, at generation time, into `src/generated/xap-types.ts` (pure, transport-free types) and `src/generated/xap-tauri.ts` (the Tauri command/event wrappers). The browser bundle imports only the pure types, so it never pulls Tauri APIs.
+- Serialization on both sides is [Serde](https://serde.rs/); the browser path serializes via `serde_json` so its JSON shape matches the desktop exactly. Raw XAP HID packets are parsed with [binrw](https://binrw.rs/).
 
 ## Project Structure
 
 ```
 .
-├── bindings (*autogenerated* JSON RPC types)
-├── public
-├── src **frontend**
-│  ├── assets
-│  ├── commands (*(not yet) autogenerated* JSON RPC handlers - TS)
-│  │  └── lighting
-│  ├── layouts (base UI layout)
-│  ├── pages (individual XAP subsystem as pages)
-│  ├── router (routing for pages)
-│  ├── stores (available XAP devices as global state)
-│  └── utils
-├── src-tauri **backend**
-│  ├── icons
-│  └── src
-│     ├── commands (*(not yet) autogenerated* JSON RPC handlers - Rust)
-│     │  └── lighting
-│     └── xap
-│        ├── hid (XAP Client and Device abstractions)
-│        └── protocol 
-│           └── subsystems
-└── xap-specs
-   ├── specs (XAP specifications, to be used for autogeneration - HJSON)
-   └── src
-      ├── constants
-      └── protocol (*(not yet) autogenerated* XAP protocol handlers - Rust)
-         ├── broadcast.rs
-         └── subsystems
-            └── lighting
+├── src/                       # shared Vue/Quasar frontend (TypeScript)
+│  ├── xap-runtime/            # runtime facade: selects desktop vs browser backend
+│  │  ├── tauri.ts             #   desktop runtime (Tauri commands/events)
+│  │  ├── browser.ts           #   browser runtime (xap-wasm)
+│  │  └── webhid.ts            #   WebHID transport adapter
+│  ├── pages/                  # XAP subsystems as pages (keymap, encoder, rgb, …)
+│  ├── layouts/                # base UI layout
+│  ├── components/
+│  ├── utils/                  # device store, event bus, helpers
+│  └── generated/              # generated TS types + the built xap-wasm package
+├── xap-core/                  # shared, transport-independent XAP core (Rust)
+│  └── src/
+│     ├── device.rs            #   submit / ingest / take_response state machine
+│     ├── client.rs            #   device registry + broadcast routing
+│     ├── session.rs           #   protocol orchestration (executor-generic)
+│     ├── transport.rs         #   XapWriter / XapQueryExecutor / IngestOutcome
+│     ├── events.rs            #   XapEvent
+│     └── aggregation/         #   aggregated device-info / config / keymap types
+├── xap-wasm/                  # wasm-bindgen wrapper over xap-core (browser)
+├── src-tauri/                 # desktop Tauri app: hidapi adapter over xap-core
+│  └── src/xap/                #   per-device HID I/O worker + writer + client
+└── xap-specs/                 # XAP protocol types (generated) + constants + assets
 ```
+
+## Running
+
+Prerequisites: a Rust toolchain, Node + [Yarn](https://yarnpkg.com/), and (for the desktop app) the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+
+### Desktop app
+
+```bash
+yarn install
+yarn dev          # tauri dev — builds the Rust workspace and opens the window
+```
+
+Devices are enumerated automatically; the keyboard appears within ~1s.
+
+### Browser web app
+
+The browser build needs the WASM package built first (it is git-ignored — it is a build artifact):
+
+```bash
+yarn install
+yarn build:wasm   # wasm-pack build -> src/generated/xap-wasm  (needs the wasm32 target + wasm-pack)
+yarn vite:dev     # serves the web app on http://localhost:1420
+```
+
+Open it in a **Chromium-based browser** (Chrome/Edge — WebHID only) over `localhost` or HTTPS, then click **Connect** and pick your keyboard. Unlike the desktop app, the browser requires this one-time user gesture to grant device access.
 
 ### Design "Rules"
 
 **General:**
 
--   Robust error handling, errors must not bring the application into an invalid state
--   Leverage types and design APIs that are hard to miss-use
--   All inter-component communication must provide log/tracing messages to gain easy introspection into the system. E.g. the frontend logs if it has received a new event or issues a command - including the payload.
+-   Robust error handling; a failed request must not leave the client wedged.
+-   Leverage types and APIs that are hard to misuse; keep the protocol logic in one place.
+-   All inter-component communication provides log/tracing messages for easy introspection.
 
 **The frontend:**
 
--   Is as dumb as possible - it presents data and prepares data to be sent to the backend.
--   Holds as little state as possible and rather relies on fetching data from the backend again.
--   Reacts to asynchronous backend events and syncs its internal state accordingly:
-    -   A new device was found - add it to available devices store
-    -   A device was removed - remove it from available devices store
-    -   The secure state of a changed - update secure state of device in the devices store
+-   Is as dumb as possible — it presents data and prepares data to send to the backend, through the `xap-runtime` facade only.
+-   Holds as little state as possible and re-fetches from the backend.
+-   Reacts to asynchronous events and syncs its store: device added / removed, secure-status changed, broadcasts.
 
-**The backend:**
+**The Rust core:**
 
--   Handles all low-level USB communication
--   Implements and abstracts the XAP protocol
--   Handles raw data aggregation and provides normalized abstractions for consumption.
-    -   e.g. when a new Device connects, all static information about the device is retrieved and put into the `XAPDeviceInfo` struct. The frontend works with this struct and e.g. never initiates a query to ask the device about its enabled XAP subsystems or config JSON blobs.
+-   Owns and abstracts the XAP protocol; performs no I/O, threading, or clock access.
+-   Aggregates raw device data into normalized structs the frontend consumes (e.g. on connect, all static device info + config blob + keymap are fetched once).
 
-### Painpoints
+**The adapters:**
 
--   frontend backend barrier across different languages is an overhead in leads to code duplication (Handlers, Exchanged Data). This should be reduced as much as possible with code generation.
+-   Own all transport: USB raw HID on desktop (one worker thread per device), WebHID in the browser.
+-   Drive the core's `submit` / `ingest` / `take_response` boundary; never reimplement protocol logic.
 
 ### Outlook
 
--   Leverage code generation as much as possible
--   The XAP protocol, client and device implementation can be compiled to WebAssembly and leverage [web_sys](`https://docs.rs/web-sys/latest/web_sys/struct.Usb.html`) crate for WebHID compatibility. This could allow a WebApp without Tauri from the same codebase in the Future(tm).
+-   Further code generation to keep the frontend/backend boundary thin.
+-   Supporting keyboard and user XAP routes.
+-   Various optimizations.
