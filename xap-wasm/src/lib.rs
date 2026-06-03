@@ -85,11 +85,14 @@ fn jserr_str(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
-/// Serialize to a JsValue with maps rendered as plain JS objects (matching the
-/// desktop `serde_json` shape the UI expects, e.g. `config.layouts`), instead
-/// of serde-wasm-bindgen's default JS `Map`.
-fn to_js<T: serde::Serialize + ?Sized>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> {
-    value.serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+/// Serialize to a JsValue via `serde_json` + `JSON.parse`, producing exactly the
+/// shape the desktop (tauri serde_json) path yields — plain JS objects, and
+/// integer map keys (e.g. lighting effects `HashMap<u16, _>`) stringified into
+/// object keys. `serde_wasm_bindgen` instead emits JS `Map`s and rejects
+/// non-string map keys, which diverges from the UI's contract.
+fn to_js<T: serde::Serialize + ?Sized>(value: &T) -> Result<JsValue, JsValue> {
+    let json = serde_json::to_string(value).map_err(jserr_str)?;
+    js_sys::JSON::parse(&json)
 }
 
 /// Copied byte-for-byte from `xap_core::device::format_hardware_id`, which is
@@ -227,7 +230,7 @@ impl XapWasmClient {
                     .map_err(jserr)?
                     .set_state(state.clone());
             }
-            to_js(&state).map_err(jserr_str)
+            to_js(&state)
         })
     }
 
@@ -240,7 +243,7 @@ impl XapWasmClient {
             .into_iter()
             .map(|d| d.state().clone())
             .collect();
-        to_js(&states).map_err(jserr_str)
+        to_js(&states)
     }
 
     /// Synchronous getter: one device's current state.
@@ -248,7 +251,7 @@ impl XapWasmClient {
         let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
         let inner = self.inner.borrow();
         let state = inner.client.device(id).map_err(jserr)?.state().clone();
-        to_js(&state).map_err(jserr_str)
+        to_js(&state)
     }
 
     /// Pure (no I/O), but returns a Promise for API uniformity.
@@ -265,7 +268,7 @@ impl XapWasmClient {
                     .keymap_with_layout(layout)
                     .map_err(jserr)?
             };
-            to_js(&mapped).map_err(jserr_str)
+            to_js(&mapped)
         })
     }
 
@@ -298,7 +301,7 @@ impl XapWasmClient {
                 .keymap
                 .remap_key(&key)
                 .map_err(jserr)?;
-            to_js(&key).map_err(jserr_str)
+            to_js(&key)
         })
     }
 
@@ -326,7 +329,7 @@ impl XapWasmClient {
     pub fn decode_keycode(&self, code: u16) -> Result<JsValue, JsValue> {
         let inner = self.inner.borrow();
         let keycode = inner.constants.get_keycode(code);
-        to_js(&keycode).map_err(jserr_str)
+        to_js(&keycode)
     }
 
     /// JS `keycodeTemplateEncode(template)` -> u16.
@@ -336,13 +339,13 @@ impl XapWasmClient {
         let code = template
             .encode()
             .ok_or_else(|| JsValue::from_str("keycode template is incomplete"))?;
-        to_js(&code).map_err(jserr_str)
+        to_js(&code)
     }
 
     /// JS `xapConstantsGet()` -> XapConstants.
     pub fn xap_constants(&self) -> Result<JsValue, JsValue> {
         let inner = self.inner.borrow();
-        to_js(inner.constants.as_ref()).map_err(jserr_str)
+        to_js(inner.constants.as_ref())
     }
 
     // --- Single-request passthroughs ----------------------------------------
@@ -355,7 +358,7 @@ impl XapWasmClient {
             let arg: KeymapGetEncoderKeycodeArg =
                 serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
             let resp = query(inner, id, KeymapGetEncoderKeycodeRequest(arg)).await?;
-            to_js(&resp.0).map_err(jserr_str)
+            to_js(&resp.0)
         })
     }
 
@@ -377,7 +380,7 @@ impl XapWasmClient {
         wasm_bindgen_futures::future_to_promise(async move {
             let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
             let resp = query(inner, id, QmkJumpToBootloaderRequest(())).await?;
-            to_js(&resp.0).map_err(jserr_str)
+            to_js(&resp.0)
         })
     }
 
@@ -387,7 +390,7 @@ impl XapWasmClient {
         wasm_bindgen_futures::future_to_promise(async move {
             let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
             let resp = query(inner, id, QmkReinitializeEepromRequest(())).await?;
-            to_js(&resp.0).map_err(jserr_str)
+            to_js(&resp.0)
         })
     }
 
@@ -397,7 +400,7 @@ impl XapWasmClient {
         wasm_bindgen_futures::future_to_promise(async move {
             let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
             let resp = query(inner, id, RgblightGetConfigRequest(())).await?;
-            to_js(&resp).map_err(jserr_str)
+            to_js(&resp)
         })
     }
 
@@ -451,8 +454,7 @@ impl XapWasmClient {
             };
 
             if layer_count == 0 || encoder_count == 0 {
-                return to_js(&Vec::<Vec<Vec<KeyCode>>>::new())
-                    .map_err(jserr_str);
+                return to_js(&Vec::<Vec<Vec<KeyCode>>>::new());
             }
 
             let mut out: Vec<Vec<Vec<KeyCode>>> = Vec::with_capacity(layer_count.into());
@@ -482,7 +484,7 @@ impl XapWasmClient {
                 out.push(layer_buf);
             }
 
-            to_js(&out).map_err(jserr_str)
+            to_js(&out)
         })
     }
 }
