@@ -35,19 +35,34 @@
                 case 'NewDevice':
                     {
                         const { id } = event.data
-                        const result = await commands.deviceGet(id)
-                        switch (result.status) {
-                            case 'ok':
-                                addDevice(result.data)
-                                break
-                            case 'error':
-                                console.error(
-                                    'error getting device info for device ' +
-                                        id +
-                                        ': ' +
-                                        result.error,
-                                )
-                                break
+                        // On the browser, device_get runs the full init over WebHID
+                        // (seconds, dominated by the keymap sweep) only after the user
+                        // picks a device, so surface a loading overlay for it. On
+                        // desktop the backend already initialised the device before
+                        // emitting NewDevice, so skip the overlay there.
+                        const showConnecting = backendCapabilities.requiresUserConnect
+                        if (showConnecting) {
+                            Loading.show({ message: 'Connecting to keyboard…' })
+                        }
+                        try {
+                            const result = await commands.deviceGet(id)
+                            switch (result.status) {
+                                case 'ok':
+                                    addDevice(result.data)
+                                    break
+                                case 'error':
+                                    console.error(
+                                        'error getting device info for device ' +
+                                            id +
+                                            ': ' +
+                                            result.error,
+                                    )
+                                    break
+                            }
+                        } finally {
+                            if (showConnecting) {
+                                Loading.hide()
+                            }
                         }
                     }
                     break
