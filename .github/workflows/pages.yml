@@ -1,0 +1,71 @@
+name: Deploy web app to GitHub Pages
+
+# Builds the browser (WebHID/WASM) front-end and publishes it to GitHub Pages.
+# Runs automatically on push to the branch below, or on demand from the Actions tab.
+on:
+  push:
+    branches: [dual-stack] # adjust to whichever branch holds the app
+  workflow_dispatch:
+
+# Permissions the official Pages deploy actions require.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; let a newer run supersede an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (with wasm32 target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build WASM package (release)
+        run: wasm-pack build xap-wasm --target web --out-dir ../src/generated/xap-wasm
+
+      - name: Build static site (relative base so it works under the Pages subpath)
+        run: yarn vite:build --base=./
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
