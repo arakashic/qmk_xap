@@ -43,8 +43,8 @@ use xap_specs::spec::{
             BacklightGetEnabledEffectsRequest,
         },
         rgblight::{
-            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest, RgblightGetConfigRequest,
-            RgblightGetEnabledEffectsRequest, RgblightSaveConfigRequest, RgblightSetConfigRequest,
+            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
+            RgblightGetEnabledEffectsRequest,
         },
         rgbmatrix::{
             RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
@@ -52,21 +52,19 @@ use xap_specs::spec::{
         },
         LightingCapabilitiesFlags, LightingCapabilitiesRequest,
     },
-    types::RgbLightConfig,
     qmk::{
         QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
         QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-        QmkHardwareIdentifierRequest, QmkJumpToBootloaderRequest, QmkProductNameRequest,
-        QmkReinitializeEepromRequest, QmkVersionRequest,
+        QmkHardwareIdentifierRequest, QmkProductNameRequest,
+        QmkVersionRequest,
     },
     remapping::{
         RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingGetLayerCountRequest,
-        RemappingSetEncoderKeycodeArg, RemappingSetEncoderKeycodeRequest, RemappingSetKeycodeArg,
-        RemappingSetKeycodeRequest,
+        RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
     },
     xap::{
         XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
-        XapSecureLockRequest, XapSecureStatusRequest, XapSecureUnlockRequest, XapVersionRequest,
+        XapSecureStatusRequest, XapVersionRequest,
     },
 };
 
@@ -305,24 +303,6 @@ impl XapWasmClient {
         })
     }
 
-    pub fn xap_secure_unlock(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            query(inner, id, XapSecureUnlockRequest(())).await?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
-    pub fn xap_secure_lock(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            query(inner, id, XapSecureLockRequest(())).await?;
-            Ok(JsValue::UNDEFINED)
-        })
-    }
-
     // --- Pure (synchronous) getters -----------------------------------------
 
     /// JS `decodeKeycode(code)` -> KeyCode.
@@ -346,83 +326,6 @@ impl XapWasmClient {
     pub fn xap_constants(&self) -> Result<JsValue, JsValue> {
         let inner = self.inner.borrow();
         to_js(inner.constants.as_ref())
-    }
-
-    // --- Single-request passthroughs ----------------------------------------
-
-    /// JS `keymapGetEncoderKeycode(id, {layer,encoder,clockwise})` -> u16.
-    pub fn keymap_get_encoder_keycode(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let arg: KeymapGetEncoderKeycodeArg =
-                serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
-            let resp = query(inner, id, KeymapGetEncoderKeycodeRequest(arg)).await?;
-            to_js(&resp.0)
-        })
-    }
-
-    /// JS `remappingSetEncoderKeycode(id, arg)`.
-    pub fn remapping_set_encoder_keycode(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let arg: RemappingSetEncoderKeycodeArg =
-                serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
-            query(inner, id, RemappingSetEncoderKeycodeRequest(arg)).await?;
-            Ok(JsValue::NULL)
-        })
-    }
-
-    /// JS `qmkJumpToBootloader(id)`.
-    pub fn qmk_jump_to_bootloader(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let resp = query(inner, id, QmkJumpToBootloaderRequest(())).await?;
-            to_js(&resp.0)
-        })
-    }
-
-    /// JS `qmkReinitializeEeprom(id)`.
-    pub fn qmk_reinitialize_eeprom(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let resp = query(inner, id, QmkReinitializeEepromRequest(())).await?;
-            to_js(&resp.0)
-        })
-    }
-
-    /// JS `rgblightGetConfig(id)` -> RgbLightConfig.
-    pub fn rgblight_get_config(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let resp = query(inner, id, RgblightGetConfigRequest(())).await?;
-            to_js(&resp)
-        })
-    }
-
-    /// JS `rgblightSetConfig(id, RgbLightConfig)`.
-    pub fn rgblight_set_config(&self, device_id: String, arg: JsValue) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let arg: RgbLightConfig = serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
-            query(inner, id, RgblightSetConfigRequest(arg)).await?;
-            Ok(JsValue::NULL)
-        })
-    }
-
-    /// JS `rgblightSaveConfig(id)`.
-    pub fn rgblight_save_config(&self, device_id: String) -> js_sys::Promise {
-        let inner = self.inner.clone();
-        wasm_bindgen_futures::future_to_promise(async move {
-            let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            query(inner, id, RgblightSaveConfigRequest(())).await?;
-            Ok(JsValue::NULL)
-        })
     }
 
     // --- Async orchestration ------------------------------------------------
@@ -815,3 +718,6 @@ async fn device_info_flow(
         secure_status,
     })
 }
+
+// Layer 1 generated passthrough methods (second #[wasm_bindgen] impl block).
+include!("generated.rs");
