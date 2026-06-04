@@ -107,7 +107,7 @@ export const runtime = isTauri ? tauriRuntime : browserRuntime
 
 ### Generated code
 
-- **Protocol route types** are generated from the HJSON specs in `xap-specs/assets` into `xap-specs` (shared by all crates); the matching Tauri RPC command wrappers are generated into `src-tauri`.
+- **Protocol route types** are generated from the HJSON specs in `xap-specs/assets` into `xap-specs` (shared by all crates). The same route walk also emits each route's per-platform command wrappers: the Tauri RPC commands into `src-tauri` (desktop), and the `XapWasmClient` passthrough methods (`xap-wasm/src/generated.rs`) plus the browser command map (`src/xap-runtime/generated-commands.ts`) for the browser. So the browser's per-route command surface is a generated mirror of the desktop's rather than a hand-written copy — and it is checked against the desktop-derived `XapCommands` type via `satisfies`, so the two surfaces can't silently drift. Only the few multi-step aggregation routes (`device_get`, `keymap_get`, `encoder_keymap_get`, `remap_key`) remain hand-written on each side.
 - **TypeScript types** are produced by `tauri-specta` on a debug desktop build and split, at generation time, into `src/generated/xap-types.ts` (pure, transport-free types) and `src/generated/xap-tauri.ts` (the Tauri command/event wrappers). The browser bundle imports only the pure types, so it never pulls Tauri APIs.
 - Serialization on both sides is [Serde](https://serde.rs/); the browser path serializes via `serde_json` so its JSON shape matches the desktop exactly. Raw XAP HID packets are parsed with [binrw](https://binrw.rs/).
 
@@ -190,6 +190,6 @@ Open it in a **Chromium-based browser** (Chrome/Edge — WebHID only) over `loca
 
 ### Outlook
 
--   Further code generation to keep the frontend/backend boundary thin.
+-   Sharing the remaining hand-written orchestration flows across the sync desktop and async browser (the per-route command surface is now generated for both; the multi-step flows in `session.rs` are still re-implemented per platform).
 -   Supporting keyboard and user XAP routes.
 -   Various optimizations.
