@@ -106,6 +106,8 @@ impl XapDevice {
                 layouts: std::collections::HashMap::new(),
                 matrix_size: Point2D { x: 0, y: 0 },
                 encoder: Default::default(),
+                split: Default::default(),
+                encoder_count: 0,
             },
             config_json: String::new(),
             secure_status: XapSecureStatus::Locked,

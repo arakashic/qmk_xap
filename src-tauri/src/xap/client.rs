@@ -152,7 +152,7 @@ impl XapClient {
                     .and_then(|i| i.remap.as_ref().and_then(|r| r.layer_count))
             })
             .unwrap_or(0);
-        let encoder_count = u8::try_from(state.config.encoder.rotary.len()).unwrap_or(u8::MAX);
+        let encoder_count = state.config.encoder_count;
         if layer_count == 0 || encoder_count == 0 {
             return Ok(Vec::new());
         }

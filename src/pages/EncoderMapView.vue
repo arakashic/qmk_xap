@@ -38,9 +38,7 @@
     const pendingAssignment: Ref<PendingAssignment | null> = ref(null)
     const pageRef: Ref<HTMLElement | null> = ref(null)
 
-    const encoderCount = computed(
-        () => device.value?.config?.encoder?.rotary?.length ?? 0,
-    )
+    const encoderCount = computed(() => device.value?.config?.encoder_count ?? 0)
     const layerCount = computed(() => {
         // KeymapInfo and RemapInfo both report layer_count; take whichever exists.
         const km = device.value?.info?.keymap?.layer_count ?? null

@@ -15,6 +15,17 @@ export type Config = {
     layouts: { [key in string]: Layout }
     matrix_size: Point2D
     encoder?: EncoderInfo
+    split?: SplitInfo
+    /**
+     * Total encoder count (`NUM_ENCODERS`), computed from `encoder` + `split`
+     * via [`Config::compute_encoder_count`]. The blob never carries this field
+     * (so it defaults to 0 on deserialize); [`query_config`] sets it once after
+     * deserialization and it is serialized out so every consumer (both backends
+     * and the frontend) shares one authoritative number.
+     *
+     * [`query_config`]: crate::session::query_config
+     */
+    encoder_count?: number
 }
 /**
  * Mirrors QMK's `encoder` block in info.json (see
@@ -218,6 +229,18 @@ export type RgblightGetEnabledEffectsResponse = bigint
 export type RgbmatrixCapabilitiesFlags = number
 export type RgbmatrixGetEnabledEffectsResponse = bigint
 export type RotaryEncoder = { pin_a: string; pin_b: string; resolution?: number | null }
+export type SplitEncoderInfo = {
+    /**
+     * `None` means the blob carried no right block, so the firmware mirrors the
+     * left half. `Some` (including an empty `rotary`) is taken as authoritative.
+     */
+    right?: EncoderInfo | null
+}
+/**
+ * Mirrors the parts of QMK's `split` block we need. Only `split.encoder.right`
+ * is modelled; the rest of the split config is irrelevant to the client.
+ */
+export type SplitInfo = { enabled?: boolean; encoder?: SplitEncoderInfo }
 /**
  * Parameterised subgroup descriptor. The wire type ships the descriptor
  * un-expanded; the frontend renders one button per layer / mod combination

@@ -351,8 +351,7 @@ impl XapWasmClient {
                             .and_then(|i| i.remap.as_ref().and_then(|r| r.layer_count))
                     })
                     .unwrap_or(0);
-                let encoder_count =
-                    u8::try_from(state.config.encoder.rotary.len()).unwrap_or(u8::MAX);
+                let encoder_count = state.config.encoder_count;
                 (layer_count, encoder_count)
             };
 
@@ -453,7 +452,8 @@ async fn config_flow(inner: Rc<RefCell<Inner>>, id: Uuid) -> Result<(Config, Str
 
     let value: serde_json::Value = serde_json::from_str(&decompressed).map_err(jserr_str)?;
     let config_json = serde_json::to_string_pretty(&value).map_err(jserr_str)?;
-    let config = serde_json::from_value(value).map_err(jserr_str)?;
+    let mut config: Config = serde_json::from_value(value).map_err(jserr_str)?;
+    config.encoder_count = config.compute_encoder_count();
 
     Ok((config, config_json))
 }

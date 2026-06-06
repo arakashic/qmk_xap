@@ -88,7 +88,8 @@ pub fn query_config<E: XapQueryExecutor>(exec: &mut E) -> Result<(Config, String
 
     let value: serde_json::Value = serde_json::from_str(&decompressed)?;
     let config_json = serde_json::to_string_pretty(&value)?;
-    let config = serde_json::from_value(value)?;
+    let mut config: Config = serde_json::from_value(value)?;
+    config.encoder_count = config.compute_encoder_count();
 
     Ok((config, config_json))
 }

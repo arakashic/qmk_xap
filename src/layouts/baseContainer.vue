@@ -35,7 +35,7 @@
                     <q-route-tab
                         v-if="
                             device?.info?.keymap?.get_encoder_keycode_enabled &&
-                            (device?.config?.encoder?.rotary?.length ?? 0) > 0
+                            (device?.config?.encoder_count ?? 0) > 0
                         "
                         label="Encoder"
                         to="/encoder"

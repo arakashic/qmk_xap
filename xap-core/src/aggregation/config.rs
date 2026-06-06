@@ -11,6 +11,57 @@ pub struct Config {
     pub matrix_size: Point2D,
     #[serde(default)]
     pub encoder: EncoderInfo,
+    #[serde(default)]
+    pub split: SplitInfo,
+    /// Total encoder count (`NUM_ENCODERS`), computed from `encoder` + `split`
+    /// via [`Config::compute_encoder_count`]. The blob never carries this field
+    /// (so it defaults to 0 on deserialize); [`query_config`] sets it once after
+    /// deserialization and it is serialized out so every consumer (both backends
+    /// and the frontend) shares one authoritative number.
+    ///
+    /// [`query_config`]: crate::session::query_config
+    #[serde(default)]
+    pub encoder_count: u8,
+}
+
+impl Config {
+    /// Reconstruct the firmware's `NUM_ENCODERS` from the config blob. The blob
+    /// never carries the right half's mirror, so we replicate QMK's own logic
+    /// (`quantum/encoder.h` and `info.py::_find_invalid_encoder_index`):
+    /// the top-level `encoder` block is always the left/primary half; on a split
+    /// board the right half is `split.encoder.right` when present, otherwise it
+    /// mirrors the left. Encoder indices are left-first then right, contiguous.
+    pub fn compute_encoder_count(&self) -> u8 {
+        let left = self.encoder.rotary.len();
+        let total = if self.split.enabled {
+            let right = match &self.split.encoder.right {
+                Some(right) => right.rotary.len(),
+                None => left,
+            };
+            left + right
+        } else {
+            left
+        };
+        u8::try_from(total).unwrap_or(u8::MAX)
+    }
+}
+
+/// Mirrors the parts of QMK's `split` block we need. Only `split.encoder.right`
+/// is modelled; the rest of the split config is irrelevant to the client.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type)]
+pub struct SplitInfo {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub encoder: SplitEncoderInfo,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type)]
+pub struct SplitEncoderInfo {
+    /// `None` means the blob carried no right block, so the firmware mirrors the
+    /// left half. `Some` (including an empty `rotary`) is taken as authoritative.
+    #[serde(default)]
+    pub right: Option<EncoderInfo>,
 }
 
 /// Mirrors QMK's `encoder` block in info.json (see
@@ -643,5 +694,93 @@ mod test {
         let config: Config = serde_json::from_str(input).unwrap();
         assert!(!config.encoder.enabled);
         assert!(config.encoder.rotary.is_empty());
+    }
+
+    fn config_with(extra: &str) -> Config {
+        let input = format!(
+            r#"{{ "layouts": {{}}, "matrix_size": {{ "cols": 0, "rows": 0 }}{extra} }}"#
+        );
+        serde_json::from_str(&input).unwrap()
+    }
+
+    // QMK's authoritative count (quantum/encoder.h + info.py
+    // _find_invalid_encoder_index): non-split -> len(encoder.rotary).
+    #[test]
+    fn encoder_count_non_split() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [
+                { "pin_a": "B4", "pin_b": "B5" },
+                { "pin_a": "B6", "pin_b": "B7" }
+            ] }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 2);
+    }
+
+    // Djinn shape: explicit split.encoder.right -> left + right.
+    #[test]
+    fn encoder_count_split_explicit_right() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [ { "pin_a": "C14", "pin_b": "C15" } ] },
+                "split": { "enabled": true, "encoder": { "right": { "rotary": [
+                    { "pin_a": "C15", "pin_b": "C14" }
+                ] } } }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 2);
+    }
+
+    // Mirror: split board with no split.encoder.right -> right mirrors left.
+    #[test]
+    fn encoder_count_split_mirror() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [
+                { "pin_a": "B4", "pin_b": "B5" },
+                { "pin_a": "B6", "pin_b": "B7" }
+            ] },
+                "split": { "enabled": true }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 4);
+    }
+
+    // no_left: empty left, explicit right -> right only (page must NOT be 0).
+    #[test]
+    fn encoder_count_split_no_left() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [] },
+                "split": { "enabled": true, "encoder": { "right": { "rotary": [
+                    { "pin_a": "A0", "pin_b": "A1" },
+                    { "pin_a": "A2", "pin_b": "A3" }
+                ] } } }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 2);
+    }
+
+    // Asymmetric: left 3, explicit right 2 -> 5.
+    #[test]
+    fn encoder_count_split_asymmetric() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [
+                { "pin_a": "B0", "pin_b": "B1" },
+                { "pin_a": "B2", "pin_b": "B3" },
+                { "pin_a": "B4", "pin_b": "B5" }
+            ] },
+                "split": { "enabled": true, "encoder": { "right": { "rotary": [
+                    { "pin_a": "A0", "pin_b": "A1" },
+                    { "pin_a": "A2", "pin_b": "A3" }
+                ] } } }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 5);
+    }
+
+    // A stray split.encoder.right on a non-split board is ignored (matches the
+    // firmware, which only doubles when SPLIT_KEYBOARD is set).
+    #[test]
+    fn encoder_count_stray_right_when_not_split() {
+        let config = config_with(
+            r#", "encoder": { "rotary": [ { "pin_a": "B4", "pin_b": "B5" } ] },
+                "split": { "enabled": false, "encoder": { "right": { "rotary": [
+                    { "pin_a": "A0", "pin_b": "A1" }
+                ] } } }"#,
+        );
+        assert_eq!(config.compute_encoder_count(), 1);
     }
 }
