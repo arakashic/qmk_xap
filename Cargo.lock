@@ -2628,6 +2628,7 @@ name = "qmk-xap-gui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "binrw",
  "bitflags 2.5.0",
  "deser-hjson",
@@ -2635,6 +2636,7 @@ dependencies = [
  "flate2",
  "hidapi",
  "log",
+ "pollster",
  "rand 0.8.5",
  "serde",
  "serde_json",

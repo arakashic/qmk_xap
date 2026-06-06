@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use hidapi::{DeviceInfo, HidApi};
 use uuid::Uuid;
 
@@ -47,8 +48,11 @@ struct ClientExecutor<'a> {
     id: Uuid,
 }
 
+#[async_trait(?Send)]
 impl XapQueryExecutor for ClientExecutor<'_> {
-    fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response> {
+    async fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response> {
+        // Synchronous body: blocks on the worker channel. Driven by block_on at
+        // the call site; the future resolves on first poll (no suspension).
         self.client.query(self.id, request)
     }
 }
@@ -128,7 +132,7 @@ impl XapClient {
         let constants = Arc::clone(&self.constants);
         let key = {
             let mut exec = ClientExecutor { client: self, id };
-            xap_core::session::remap_key(&mut exec, &constants, arg)?
+            pollster::block_on(xap_core::session::remap_key(&mut exec, &constants, arg))?
         };
         self.core
             .lock()
@@ -158,7 +162,12 @@ impl XapClient {
         }
         let constants = Arc::clone(&self.constants);
         let mut exec = ClientExecutor { client: self, id };
-        xap_core::session::query_encoder_keymap(&mut exec, &constants, layer_count, encoder_count)
+        pollster::block_on(xap_core::session::query_encoder_keymap(
+            &mut exec,
+            &constants,
+            layer_count,
+            encoder_count,
+        ))
     }
 
     pub fn enumerate_xap_devices(&mut self) -> Result<Vec<XapEvent>> {
@@ -234,7 +243,7 @@ impl XapClient {
             let constants = Arc::clone(&self.constants);
             let state = {
                 let mut exec = ClientExecutor { client: self, id };
-                xap_core::session::initialize(&mut exec, constants, id)?
+                pollster::block_on(xap_core::session::initialize(&mut exec, constants, id))?
             };
             self.core.lock().unwrap().device_mut(id)?.set_state(state);
 
