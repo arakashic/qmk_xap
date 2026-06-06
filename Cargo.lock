@@ -4844,6 +4844,7 @@ name = "xap-wasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "console_error_panic_hook",
  "flate2",
  "futures",

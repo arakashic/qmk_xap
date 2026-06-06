@@ -18,6 +18,7 @@ serde_json = "1"
 uuid = { version = "1.8", features = ["serde", "v4", "js"] }
 anyhow = "1.0"
 log = "0.4"
+async-trait = "0.1"
 futures = "0.3"
 flate2 = "1.0"
 console_error_panic_hook = "0.1"

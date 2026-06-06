@@ -1,13 +1,12 @@
 //! xap-wasm: a `wasm-bindgen` wrapper over `xap-core` that bridges the core's
 //! non-blocking push model to JS Promises for the browser.
 //!
-//! The core is single-threaded and sync; the browser cannot block to await each
-//! request. So instead of reusing `xap_core::session`'s sync `XapQueryExecutor`
-//! orchestration, we re-implement the same request *sequences* asynchronously
-//! (see [`device_info_flow`]) while reusing every pure piece: the spec
-//! request/response types, `XapConstants::get_keycode`, `Config`/serde parsing,
-//! `Keymap` building, and gzip decompression. The duplication of the request
-//! order + capability gating is an accepted cost of sync-core + async-browser.
+//! The core is single-threaded; the browser cannot block to await each request.
+//! `xap_core::session`'s orchestration is now `async` over the `XapQueryExecutor`
+//! seam, so we reuse it directly: [`WasmExecutor`] implements that seam (one
+//! in-flight query per device, resolved when `handle_input_report` lands the
+//! matching response), and `device_get`/`remap_key`/`encoder_keymap_get` route
+//! through `xap_core::session::*`. No request sequences are re-implemented here.
 //!
 //! Threading model: single-threaded browser, so `Rc<RefCell<Inner>>` (not
 //! Arc/Mutex). A RefCell borrow is NEVER held across an `.await` or across a JS
@@ -18,12 +17,11 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::Read;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use flate2::read::GzDecoder;
+use async_trait::async_trait;
 use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 
@@ -32,48 +30,10 @@ use xap_specs::constants::keycode::KeyCode;
 use xap_specs::constants::XapConstants;
 use xap_specs::request::XapRequest;
 
-use xap_specs::spec::{
-    keymap::{
-        KeymapCapabilitiesFlags, KeymapCapabilitiesRequest, KeymapGetEncoderKeycodeArg,
-        KeymapGetEncoderKeycodeRequest, KeymapGetKeycodeRequest, KeymapGetLayerCountRequest,
-    },
-    lighting::{
-        backlight::{
-            BacklightCapabilitiesFlags, BacklightCapabilitiesRequest,
-            BacklightGetEnabledEffectsRequest,
-        },
-        rgblight::{
-            RgblightCapabilitiesFlags, RgblightCapabilitiesRequest,
-            RgblightGetEnabledEffectsRequest,
-        },
-        rgbmatrix::{
-            RgbmatrixCapabilitiesFlags, RgbmatrixCapabilitiesRequest,
-            RgbmatrixGetEnabledEffectsRequest,
-        },
-        LightingCapabilitiesFlags, LightingCapabilitiesRequest,
-    },
-    qmk::{
-        QmkBoardIdentifiersRequest, QmkBoardManufacturerRequest, QmkCapabilitiesFlags,
-        QmkCapabilitiesRequest, QmkConfigBlobChunkRequest, QmkConfigBlobLengthRequest,
-        QmkHardwareIdentifierRequest, QmkProductNameRequest,
-        QmkVersionRequest,
-    },
-    remapping::{
-        RemappingCapabilitiesFlags, RemappingCapabilitiesRequest, RemappingGetLayerCountRequest,
-        RemappingSetKeycodeArg, RemappingSetKeycodeRequest,
-    },
-    xap::{
-        XapEnabledSubsystemCapabilitiesFlags, XapEnabledSubsystemCapabilitiesRequest,
-        XapSecureStatusRequest, XapVersionRequest,
-    },
-};
+use xap_specs::spec::remapping::RemappingSetKeycodeArg;
 
-use xap_core::aggregation::{
-    config::Config, KeymapInfo, LightingCapabilities, LightingInfo, Point2D, Point3D, QmkInfo,
-    RemapInfo, XapDeviceInfo, XapInfo,
-};
-use xap_core::transport::{IngestOutcome, XapWriter};
-use xap_core::{Keymap, KeymapKey, XapClient, XapDevice, XapDeviceState};
+use xap_core::transport::{IngestOutcome, XapQueryExecutor, XapWriter};
+use xap_core::{XapClient, XapDevice, XapDeviceState};
 
 fn jserr(e: anyhow::Error) -> JsValue {
     JsValue::from_str(&e.to_string())
@@ -91,16 +51,6 @@ fn jserr_str(e: impl std::fmt::Display) -> JsValue {
 fn to_js<T: serde::Serialize + ?Sized>(value: &T) -> Result<JsValue, JsValue> {
     let json = serde_json::to_string(value).map_err(jserr_str)?;
     js_sys::JSON::parse(&json)
-}
-
-/// Copied byte-for-byte from `xap_core::device::format_hardware_id`, which is
-/// `pub(crate)` and therefore not reachable from this crate.
-fn format_hardware_id(hardware_id: [u32; 4]) -> String {
-    hardware_id
-        .iter()
-        .map(|word| format!("0x{word:08X}"))
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 struct Inner {
@@ -219,15 +169,20 @@ impl XapWasmClient {
         let inner = self.inner.clone();
         wasm_bindgen_futures::future_to_promise(async move {
             let id = Uuid::parse_str(&device_id).map_err(jserr_str)?;
-            let state = device_info_flow(inner.clone(), id).await?;
-            {
-                inner
-                    .borrow_mut()
-                    .client
-                    .device_mut(id)
-                    .map_err(jserr)?
-                    .set_state(state.clone());
-            }
+            let constants = inner.borrow().constants.clone();
+            let mut exec = WasmExecutor {
+                inner: inner.clone(),
+                id,
+            };
+            let state = xap_core::session::initialize(&mut exec, constants, id)
+                .await
+                .map_err(jserr)?;
+            inner
+                .borrow_mut()
+                .client
+                .device_mut(id)
+                .map_err(jserr)?
+                .set_state(state.clone());
             to_js(&state)
         })
     }
@@ -279,19 +234,17 @@ impl XapWasmClient {
             let arg: RemappingSetKeycodeArg =
                 serde_wasm_bindgen::from_value(arg).map_err(jserr_str)?;
 
-            query(inner.clone(), id, RemappingSetKeycodeRequest(arg.clone())).await?;
-
-            let position = Point3D {
-                z: arg.layer as u64,
-                y: arg.row as u64,
-                x: arg.column as u64,
+            let constants = inner.borrow().constants.clone();
+            let mut exec = WasmExecutor {
+                inner: inner.clone(),
+                id,
             };
-            let raw = query(inner.clone(), id, KeymapGetKeycodeRequest(position.into())).await?;
+            let key = xap_core::session::remap_key(&mut exec, &constants, arg)
+                .await
+                .map_err(jserr)?;
 
-            let mut inner_ref = inner.borrow_mut();
-            let code = inner_ref.constants.get_keycode(raw.0);
-            let key = KeymapKey { code, position };
-            inner_ref
+            inner
+                .borrow_mut()
                 .client
                 .device_mut(id)
                 .map_err(jserr)?
@@ -359,364 +312,83 @@ impl XapWasmClient {
                 return to_js(&Vec::<Vec<Vec<KeyCode>>>::new());
             }
 
-            let mut out: Vec<Vec<Vec<KeyCode>>> = Vec::with_capacity(layer_count.into());
-            for layer in 0..layer_count {
-                let mut layer_buf: Vec<Vec<KeyCode>> = Vec::with_capacity(encoder_count.into());
-                for encoder in 0..encoder_count {
-                    let mut pair: Vec<KeyCode> = Vec::with_capacity(2);
-                    for clockwise in 0..=1u8 {
-                        let raw = query(
-                            inner.clone(),
-                            id,
-                            KeymapGetEncoderKeycodeRequest(KeymapGetEncoderKeycodeArg {
-                                layer,
-                                encoder,
-                                clockwise,
-                            }),
-                        )
-                        .await?;
-                        let code = {
-                            let inner_ref = inner.borrow();
-                            inner_ref.constants.get_keycode(raw.0)
-                        };
-                        pair.push(code);
-                    }
-                    layer_buf.push(pair);
-                }
-                out.push(layer_buf);
-            }
-
+            let constants = inner.borrow().constants.clone();
+            let mut exec = WasmExecutor {
+                inner: inner.clone(),
+                id,
+            };
+            let out = xap_core::session::query_encoder_keymap(
+                &mut exec,
+                &constants,
+                layer_count,
+                encoder_count,
+            )
+            .await
+            .map_err(jserr)?;
             to_js(&out)
         })
     }
 }
 
-/// Submit a single request and await its response. One in-flight per device.
+/// Async executor: one in-flight query per device, resolved when
+/// `handle_input_report` lands the matching response. This is the former free
+/// `query` fn, returning `anyhow::Result` so it satisfies the shared seam.
+struct WasmExecutor {
+    inner: Rc<RefCell<Inner>>,
+    id: Uuid,
+}
+
+#[async_trait(?Send)]
+impl XapQueryExecutor for WasmExecutor {
+    async fn query<T: XapRequest>(&mut self, request: T) -> anyhow::Result<T::Response> {
+        let (tx, rx) = futures::channel::oneshot::channel();
+
+        let token = {
+            let mut inner = self.inner.borrow_mut();
+            // A pre-existing waiter means a protocol violation of one-in-flight;
+            // overwriting cancels the stale one, which is fine.
+            inner.waiters.insert(self.id, tx);
+
+            let writer = WasmWriter {
+                device_id: self.id.to_string(),
+                send_report: inner.send_report.clone(),
+            };
+            // NOTE: submit calls writer.write_report -> send_report synchronously
+            // while this borrow is held. send_report must NOT reenter the client
+            // synchronously (WebHID sendReport returns a Promise and won't).
+            inner
+                .client
+                .device_mut(self.id)
+                .map_err(|e| anyhow!("{e}"))?
+                .submit(&writer, request)
+                .map_err(|e| anyhow!("{e}"))?
+        };
+
+        rx.await.map_err(|_| anyhow!("request canceled"))?;
+
+        let resp = {
+            let mut inner = self.inner.borrow_mut();
+            inner
+                .client
+                .device_mut(self.id)
+                .map_err(|e| anyhow!("{e}"))?
+                .take_response::<T>(&token)
+                .map_err(|e| anyhow!("{e}"))?
+        };
+        resp.ok_or_else(|| anyhow!("missing response"))
+    }
+}
+
+/// Thin free wrapper kept for the Layer 1 generated passthrough methods, which
+/// call `query(inner, id, request)` and expect a `Result<_, JsValue>`. Delegates
+/// to `WasmExecutor` so the borrow/submit/await logic lives in one place.
 async fn query<T: XapRequest>(
     inner: Rc<RefCell<Inner>>,
     id: Uuid,
     request: T,
 ) -> Result<T::Response, JsValue> {
-    let (tx, rx) = futures::channel::oneshot::channel();
-
-    let token = {
-        let mut inner = inner.borrow_mut();
-        // A pre-existing waiter means a protocol violation of one-in-flight;
-        // overwriting cancels the stale one, which is fine.
-        inner.waiters.insert(id, tx);
-
-        let writer = WasmWriter {
-            device_id: id.to_string(),
-            send_report: inner.send_report.clone(),
-        };
-        // NOTE: submit calls writer.write_report -> send_report synchronously
-        // while this borrow is held. send_report must NOT reenter the client
-        // synchronously (WebHID sendReport returns a Promise and won't).
-        inner.client.device_mut(id).map_err(jserr)?.submit(&writer, request).map_err(jserr)?
-    };
-
-    rx.await.map_err(|_| JsValue::from_str("request canceled"))?;
-
-    let resp = {
-        let mut inner = inner.borrow_mut();
-        inner
-            .client
-            .device_mut(id)
-            .map_err(jserr)?
-            .take_response::<T>(&token)
-            .map_err(jserr)?
-    };
-    resp.ok_or_else(|| JsValue::from_str("missing response"))
-}
-
-/// Async re-implementation of `xap_core::session::query_config`: fetch the
-/// chunked gzip config blob, decompress, and parse into `(Config, pretty_json)`.
-async fn config_flow(inner: Rc<RefCell<Inner>>, id: Uuid) -> Result<(Config, String), JsValue> {
-    let size = query(inner.clone(), id, QmkConfigBlobLengthRequest(()))
-        .await?
-        .0;
-
-    let mut data: Vec<u8> = Vec::with_capacity(size as usize);
-    let mut offset: u16 = 0;
-    while offset < size {
-        let chunk = query(inner.clone(), id, QmkConfigBlobChunkRequest(offset)).await?;
-        data.extend(chunk.0.into_iter());
-        offset += chunk.0.len() as u16;
-    }
-
-    let data = &data[..(size as usize)];
-
-    let mut decoder = GzDecoder::new(data);
-    let mut decompressed = String::new();
-    decoder.read_to_string(&mut decompressed).map_err(jserr_str)?;
-
-    let value: serde_json::Value = serde_json::from_str(&decompressed).map_err(jserr_str)?;
-    let config_json = serde_json::to_string_pretty(&value).map_err(jserr_str)?;
-    let mut config: Config = serde_json::from_value(value).map_err(jserr_str)?;
-    config.encoder_count = config.compute_encoder_count();
-
-    Ok((config, config_json))
-}
-
-/// Async re-implementation of `session::query_device_info`. Byte-faithful to the
-/// sync version's request order and capability gating.
-async fn device_info_flow_inner(
-    inner: Rc<RefCell<Inner>>,
-    id: Uuid,
-) -> Result<(XapDeviceInfo, Config, String), JsValue> {
-    let subsystems = query(
-        inner.clone(),
-        id,
-        XapEnabledSubsystemCapabilitiesRequest(()),
-    )
-    .await?;
-
-    let xap_info = XapInfo {
-        version: query(inner.clone(), id, XapVersionRequest(())).await?.0,
-    };
-
-    let qmk_caps = query(inner.clone(), id, QmkCapabilitiesRequest(())).await?;
-    let board_ids = query(inner.clone(), id, QmkBoardIdentifiersRequest(())).await?;
-    let manufacturer = query(inner.clone(), id, QmkBoardManufacturerRequest(()))
-        .await?
-        .0
-         .0
-        .trim_matches('"')
-        .to_owned();
-    let product_name = query(inner.clone(), id, QmkProductNameRequest(()))
-        .await?
-        .0
-         .0
-        .trim_matches('"')
-        .to_owned();
-
-    let (config, config_json) = config_flow(inner.clone(), id).await?;
-
-    let hardware_id = query(inner.clone(), id, QmkHardwareIdentifierRequest(()))
-        .await?
-        .0;
-
-    let qmk_info = QmkInfo {
-        version: query(inner.clone(), id, QmkVersionRequest(()))
-            .await?
-            .0
-            .to_string(),
-        board_ids,
-        manufacturer,
-        product_name,
-        hardware_id: format_hardware_id(hardware_id),
-        jump_to_bootloader_enabled: qmk_caps.contains(QmkCapabilitiesFlags::JumpToBootloader),
-        eeprom_reset_enabled: qmk_caps.contains(QmkCapabilitiesFlags::ReinitializeEeprom),
-    };
-
-    let keymap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Keymap) {
-        let keymap_caps = query(inner.clone(), id, KeymapCapabilitiesRequest(())).await?;
-
-        let layer_count = if keymap_caps.contains(KeymapCapabilitiesFlags::GetLayerCount) {
-            Some(
-                query(inner.clone(), id, KeymapGetLayerCountRequest(()))
-                    .await?
-                    .0,
-            )
-        } else {
-            None
-        };
-
-        Some(KeymapInfo {
-            layer_count,
-            get_keycode_enabled: keymap_caps.contains(KeymapCapabilitiesFlags::GetKeycode),
-            get_encoder_keycode_enabled: keymap_caps
-                .contains(KeymapCapabilitiesFlags::GetEncoderKeycode),
-        })
-    } else {
-        None
-    };
-
-    let remap_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Remapping) {
-        let remap_caps = query(inner.clone(), id, RemappingCapabilitiesRequest(())).await?;
-
-        let layer_count = if remap_caps.contains(RemappingCapabilitiesFlags::GetLayerCount) {
-            Some(
-                query(inner.clone(), id, RemappingGetLayerCountRequest(()))
-                    .await?
-                    .0,
-            )
-        } else {
-            None
-        };
-
-        Some(RemapInfo {
-            layer_count,
-            set_keycode_enabled: remap_caps.contains(RemappingCapabilitiesFlags::SetKeycode),
-            set_encoder_keycode_enabled: remap_caps
-                .contains(RemappingCapabilitiesFlags::SetEncoderKeycode),
-        })
-    } else {
-        None
-    };
-
-    let lighting_info = if subsystems.contains(XapEnabledSubsystemCapabilitiesFlags::Lighting) {
-        let lighting_caps = query(inner.clone(), id, LightingCapabilitiesRequest(())).await?;
-
-        let backlight_info = if lighting_caps.contains(LightingCapabilitiesFlags::Backlight) {
-            let backlight_caps = query(inner.clone(), id, BacklightCapabilitiesRequest(())).await?;
-
-            let effects = if backlight_caps.contains(BacklightCapabilitiesFlags::GetEnabledEffects) {
-                query(inner.clone(), id, BacklightGetEnabledEffectsRequest(()))
-                    .await?
-                    .0
-            } else {
-                0
-            };
-
-            let map = {
-                let inner = inner.borrow();
-                inner.constants.led_matrix_modes.get_effect_map(effects as u64)
-            };
-            Some(LightingCapabilities::new(
-                map,
-                backlight_caps.contains(BacklightCapabilitiesFlags::GetConfig),
-                backlight_caps.contains(BacklightCapabilitiesFlags::SetConfig),
-                backlight_caps.contains(BacklightCapabilitiesFlags::SaveConfig),
-            ))
-        } else {
-            None
-        };
-
-        let rgblight_info = if lighting_caps.contains(LightingCapabilitiesFlags::Rgblight) {
-            let rgblight_caps = query(inner.clone(), id, RgblightCapabilitiesRequest(())).await?;
-
-            let effects = if rgblight_caps.contains(RgblightCapabilitiesFlags::GetEnabledEffects) {
-                query(inner.clone(), id, RgblightGetEnabledEffectsRequest(()))
-                    .await?
-                    .0
-            } else {
-                0
-            };
-
-            let map = {
-                let inner = inner.borrow();
-                inner.constants.rgblight_modes.get_effect_map(effects)
-            };
-            Some(LightingCapabilities::new(
-                map,
-                rgblight_caps.contains(RgblightCapabilitiesFlags::GetConfig),
-                rgblight_caps.contains(RgblightCapabilitiesFlags::SetConfig),
-                rgblight_caps.contains(RgblightCapabilitiesFlags::SaveConfig),
-            ))
-        } else {
-            None
-        };
-
-        let rgbmatrix_info = if lighting_caps.contains(LightingCapabilitiesFlags::Rgbmatrix) {
-            let rgbmatrix_caps = query(inner.clone(), id, RgbmatrixCapabilitiesRequest(())).await?;
-
-            let effects = if rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::GetEnabledEffects) {
-                query(inner.clone(), id, RgbmatrixGetEnabledEffectsRequest(()))
-                    .await?
-                    .0
-            } else {
-                0
-            };
-
-            let map = {
-                let inner = inner.borrow();
-                inner.constants.rgb_matrix_modes.get_effect_map(effects)
-            };
-            Some(LightingCapabilities::new(
-                map,
-                rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::GetConfig),
-                rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::SetConfig),
-                rgbmatrix_caps.contains(RgbmatrixCapabilitiesFlags::SaveConfig),
-            ))
-        } else {
-            None
-        };
-
-        Some(LightingInfo {
-            backlight: backlight_info,
-            rgblight: rgblight_info,
-            rgbmatrix: rgbmatrix_info,
-        })
-    } else {
-        None
-    };
-
-    let info = XapDeviceInfo {
-        xap: xap_info,
-        qmk: qmk_info,
-        keymap: keymap_info,
-        remap: remap_info,
-        lighting: lighting_info,
-    };
-
-    Ok((info, config, config_json))
-}
-
-/// Async re-implementation of `session::query_keymap`.
-async fn keymap_flow(
-    inner: Rc<RefCell<Inner>>,
-    id: Uuid,
-    info: &XapDeviceInfo,
-    config: &Config,
-) -> Result<Keymap, JsValue> {
-    let layers: u64 = if let Some(keymap) = &info.keymap {
-        keymap.layer_count.unwrap_or_default() as u64
-    } else {
-        0
-    };
-
-    let Point2D {
-        x: columns,
-        y: rows,
-    } = config.matrix_size;
-
-    let mut keymap = Keymap::new(layers, rows, columns);
-
-    for layer in 0..layers {
-        for row in 0..rows {
-            for column in 0..columns {
-                let position = Point3D {
-                    z: layer,
-                    y: row,
-                    x: column,
-                };
-                let raw = query(inner.clone(), id, KeymapGetKeycodeRequest(position.into())).await?;
-                let code = {
-                    let inner = inner.borrow();
-                    inner.constants.get_keycode(raw.0)
-                };
-                keymap
-                    .remap_key(&KeymapKey { code, position })
-                    .map_err(jserr)?;
-            }
-        }
-    }
-
-    Ok(keymap)
-}
-
-/// Async re-implementation of `session::initialize`: device info, keymap,
-/// secure status -> a fully assembled `XapDeviceState`.
-async fn device_info_flow(
-    inner: Rc<RefCell<Inner>>,
-    id: Uuid,
-) -> Result<XapDeviceState, JsValue> {
-    let (info, config, config_json) = device_info_flow_inner(inner.clone(), id).await?;
-    let keymap = keymap_flow(inner.clone(), id, &info, &config).await?;
-    let secure_status = query(inner.clone(), id, XapSecureStatusRequest(()))
-        .await?
-        .0
-        .into();
-
-    Ok(XapDeviceState {
-        id,
-        info: Some(info),
-        keymap,
-        config,
-        config_json,
-        secure_status,
-    })
+    let mut exec = WasmExecutor { inner, id };
+    exec.query(request).await.map_err(jserr)
 }
 
 // Layer 1 generated passthrough methods (second #[wasm_bindgen] impl block).
