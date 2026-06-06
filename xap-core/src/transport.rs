@@ -1,13 +1,16 @@
 use anyhow::Result;
+use async_trait::async_trait;
 
 use xap_specs::request::XapRequest;
 
-/// A synchronous submit+wait+decode primitive, implemented by each platform
-/// adapter (desktop: blocking on a channel; wasm: drives its own loop). The
-/// core's orchestration is generic over this so protocol knowledge lives in one
-/// place. The core itself never blocks; the executor owns all waiting.
+/// A submit+wait+decode primitive, implemented by each platform adapter
+/// (desktop: blocking on a channel inside a single-threaded `block_on`; wasm:
+/// awaiting a WebHID round-trip). The core's orchestration is generic over this
+/// so protocol knowledge lives in one place. `?Send`: both drivers are
+/// single-threaded, so futures need not be `Send`.
+#[async_trait(?Send)]
 pub trait XapQueryExecutor {
-    fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response>;
+    async fn query<T: XapRequest>(&mut self, request: T) -> Result<T::Response>;
 }
 
 /// The core hands the adapter bytes to put on the wire. The adapter feeds
