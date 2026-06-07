@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "build": "tauri build",
-        "build:wasm": "PATH=\"$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH\" wasm-pack build xap-wasm --target web --out-dir ../src/generated/xap-wasm --dev",
+        "build:wasm": "PATH=\"$(dirname \"$(rustup which rustc)\")\":$PATH wasm-pack build xap-wasm --target web --out-dir ../src/generated/xap-wasm --dev",
         "check": "cd src-tauri && cargo check",
         "dev": "RUST_BACKTRACE=1 tauri dev",
         "format": "prettier --write .",
