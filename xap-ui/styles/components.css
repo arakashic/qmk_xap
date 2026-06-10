@@ -1,0 +1,764 @@
+/* Quasar-look component styles, recreating the q-* widgets the app uses.
+   Brand colors from src/quasar-variables.sass: primary #1976D2,
+   secondary #26A69A. Imported from input.css. */
+
+/* --- Header / toolbar ---------------------------------------------------- */
+.qx-header {
+  background: #1976d2;
+  color: #fff;
+  box-shadow:
+    0 1px 5px rgba(0, 0, 0, 0.2),
+    0 2px 2px rgba(0, 0, 0, 0.14),
+    0 3px 1px -2px rgba(0, 0, 0, 0.12);
+}
+
+.qx-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 0 12px;
+}
+
+.qx-title {
+  display: flex;
+  align-items: center;
+  font-size: 21px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  flex: 1 1 auto;
+}
+
+.qx-avatar {
+  width: 38px;
+  height: 38px;
+  margin-right: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.qx-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* --- Tabs ---------------------------------------------------------------- */
+.qx-tabs {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+}
+
+.qx-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  min-height: 50px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.qx-tab:hover {
+  color: #fff;
+}
+.qx-tab-active {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+.qx-tab-disabled {
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  cursor: default;
+}
+
+/* --- Filled select (device picker) -------------------------------------- */
+.qx-select {
+  position: relative;
+  background: #f5f5f5;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.42);
+  padding: 8px 12px 6px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.qx-select-disabled {
+  opacity: 0.6;
+}
+.qx-select-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.qx-select-native {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.87);
+  padding-right: 24px;
+  width: 100%;
+  cursor: pointer;
+}
+.qx-select-native:disabled {
+  cursor: default;
+}
+.qx-select-arrow {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  color: rgba(0, 0, 0, 0.54);
+  pointer-events: none;
+  font-size: 24px;
+}
+
+/* --- Buttons ------------------------------------------------------------- */
+.qx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #1976d2;
+  color: #fff;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.qx-btn:hover {
+  background: #1565c0;
+}
+.qx-btn:disabled {
+  opacity: 0.6;
+  box-shadow: none;
+  cursor: default;
+}
+.qx-btn-block {
+  width: 100%;
+}
+
+/* Flat button (no fill/shadow), e.g. the dense copy icon button. */
+.qx-btn-flat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+}
+.qx-btn-flat:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Filled stack-label display field (readonly q-field). */
+.qx-field {
+  background: #f0f0f0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.42);
+  border-radius: 4px 4px 0 0;
+  padding: 8px 12px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.qx-field-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.qx-field-value {
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+/* Expansion item (q-expansion-item). */
+.qx-expansion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+.qx-expansion-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+.qx-expansion-chevron {
+  color: rgba(0, 0, 0, 0.54);
+  transition: transform 0.3s;
+}
+.qx-expansion-open .qx-expansion-chevron {
+  transform: rotate(180deg);
+}
+
+/* Section heading (h5). */
+.qx-h5 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Firmware config card + json. */
+.qx-config-card {
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+.qx-config-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.config-json {
+  margin: 0;
+  padding: 12px;
+  max-height: 50vh;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Floating action button (secure lock/unlock). */
+.qx-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  padding: 0;
+  background: #26a69a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow:
+    0 3px 5px -1px rgba(0, 0, 0, 0.2),
+    0 6px 10px 0 rgba(0, 0, 0, 0.14),
+    0 1px 18px 0 rgba(0, 0, 0, 0.12);
+}
+.qx-fab:hover {
+  background: #2bbbad;
+}
+
+/* --- Connect / empty-state ---------------------------------------------- */
+.qx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 60vh;
+  padding: 24px;
+  text-align: center;
+}
+.qx-empty-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+.qx-icon-usb {
+  font-size: 48px;
+  color: #1976d2;
+}
+.qx-icon-usb-off {
+  font-size: 48px;
+  color: #9e9e9e;
+}
+
+/* --- Toast stack (Quasar Notify, bottom-center) ------------------------- */
+.qx-toast-stack {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 7000;
+  pointer-events: none;
+}
+.qx-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #424242;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  box-shadow:
+    0 3px 5px -1px rgba(0, 0, 0, 0.2),
+    0 6px 10px 0 rgba(0, 0, 0, 0.14);
+}
+.qx-toast-negative {
+  background: #c10015;
+  color: #fff;
+}
+.qx-toast-locked {
+  background: #f44336;
+  color: #fff;
+}
+.qx-toast-info {
+  background: #f2c037;
+  color: #000;
+}
+
+/* --- Loading overlay ----------------------------------------------------- */
+.qx-loading {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 8000;
+  color: #fff;
+}
+.qx-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: qx-spin 0.8s linear infinite;
+}
+@keyframes qx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Key widgets (KeyLabel / BasicKeyboardLayout / KeycodePicker) -------- */
+
+.key-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  column-gap: 0.25em;
+  line-height: inherit;
+}
+.key-label-center {
+  justify-content: center;
+}
+.key-label-left {
+  justify-content: flex-start;
+}
+.key-label-segment {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.key-label-center .key-label-segment {
+  justify-content: center;
+}
+.key-label-left .key-label-segment {
+  justify-content: flex-start;
+}
+.key-label-part {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+  hyphens: auto;
+  hyphenate-character: '';
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.key-name-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.1;
+}
+
+.ansi-keyboard-scroll {
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  padding-bottom: 0.625rem;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+.ansi-keyboard-scroll::-webkit-scrollbar {
+  height: 0.75rem;
+}
+.ansi-keyboard-scroll::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+.ansi-keyboard-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border: 2px solid #e5e7eb;
+  border-radius: 999px;
+}
+.ansi-keyboard-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+.ansi-keyboard-canvas {
+  flex: 0 0 auto;
+  max-width: none;
+}
+
+.picker-key-label {
+  font-size: 0.75rem;
+}
+.keycode-button {
+  width: var(--picker-key-size);
+  height: var(--picker-key-size);
+  padding: 0.25rem;
+}
+.keycode-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.keycode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--picker-key-size));
+  gap: var(--picker-key-gap);
+  max-width: calc(16 * var(--picker-key-size) + 15 * var(--picker-key-gap));
+}
+.keycode-area {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.keycode-tab-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: 0.75rem 0.25rem 0.25rem 0;
+}
+.subgroup {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0.75rem;
+}
+.subgroup:first-child {
+  margin-top: 0;
+}
+
+/* Picker tabs (custom, mimic q-tabs). */
+.keycode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 0.25rem;
+}
+.keycode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  color: #1976d2;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.keycode-tab-active {
+  border-bottom-color: #1976d2;
+  font-weight: 500;
+}
+
+.fallback-tab {
+  border: 1px dashed #d97706;
+  border-radius: 0.25rem;
+}
+.fallback-marker {
+  margin-left: 0.25rem;
+  color: #d97706;
+  font-size: 0.7rem;
+  font-style: italic;
+}
+.fallback-subgroup .fallback-marker {
+  color: #d97706;
+}
+
+/* Family colour tints — shared by picker buttons AND keymap keys. The ring
+   colour is set on the compound selector so it beats the `ring-neutral-300`
+   Tailwind utility (equal-specificity otherwise; utilities layer wins). */
+.family-layer {
+  background-color: #eff6ff;
+}
+.family-modtap {
+  background-color: #faf5ff;
+}
+.family-layermod {
+  background-color: #ecfeff;
+}
+.family-modified {
+  background-color: #fff7ed;
+}
+.key-name-button.family-layer {
+  --tw-ring-color: #93c5fd;
+}
+.key-name-button.family-modtap {
+  --tw-ring-color: #d8b4fe;
+}
+.key-name-button.family-layermod {
+  --tw-ring-color: #67e8f9;
+}
+.key-name-button.family-modified {
+  --tw-ring-color: #fdba74;
+}
+
+.pending-banner {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px dashed #6b7280;
+  font-size: 0.875rem;
+}
+.mod-mini-picker {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0.75rem 0 1rem;
+}
+
+/* --- KeymapView ---------------------------------------------------------- */
+.keymap-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 1rem 0.5rem;
+  outline: none;
+}
+.keymap-toolbar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 3rem;
+  gap: 1rem;
+}
+.layout-select {
+  flex: 0 0 12rem;
+  max-width: 16rem;
+}
+.layer-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  color: #1976d2;
+}
+.layer-tabs-label {
+  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 12px;
+}
+.layer-tab {
+  min-width: 2.25rem;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #1976d2;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.layer-tab-active {
+  border-bottom-color: #1976d2;
+  font-weight: 500;
+}
+.keymap-panels {
+  flex: 0 0 auto;
+  overflow: visible;
+  background: transparent;
+}
+.keymap-tab-panel {
+  overflow: visible;
+  padding: 0.75rem 0 1rem;
+}
+.keymap-stage {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 0.25rem 0 0.5rem;
+}
+.keymap-canvas {
+  flex: 0 0 auto;
+}
+.key-button {
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease;
+  transform-origin: center;
+}
+.key-button:hover {
+  transform: translateY(-0.0625rem);
+  box-shadow:
+    0 8px 14px -8px rgba(0, 0, 0, 0.45),
+    0 4px 8px -6px rgba(0, 0, 0, 0.35);
+}
+.split-key {
+  flex-direction: column;
+}
+.key-name-button .split-top,
+.key-name-button .split-bottom {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.key-name-button .split-bottom {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.split-bottom-clickable {
+  cursor: pointer;
+}
+.split-bottom-clickable:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+.split-divider {
+  flex: 0 0 auto;
+  width: 100%;
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+}
+.pending-key {
+  animation: pending-pulse 1.4s ease-in-out infinite;
+  border-style: dashed !important;
+}
+.pending-key .split-bottom {
+  font-style: italic;
+  color: #6b7280;
+}
+@keyframes pending-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+  50%      { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1); }
+}
+
+/* --- EncoderMapView ------------------------------------------------------ */
+.encoder-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 1rem 0.5rem;
+  outline: none;
+}
+.encoder-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 0 1rem;
+}
+.encoder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  min-width: 9rem;
+}
+.encoder-card-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  text-align: center;
+}
+.encoder-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 8rem;
+  height: 3.25rem;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: normal;
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+.encoder-slot:hover {
+  transform: translateY(-0.0625rem);
+  box-shadow:
+    0 8px 14px -8px rgba(0, 0, 0, 0.45),
+    0 4px 8px -6px rgba(0, 0, 0, 0.35);
+}
+.slot-direction {
+  font-size: 1.25rem;
+  flex: 0 0 1.5rem;
+  text-align: center;
+}
+.slot-label {
+  flex: 1 1 0;
+  font-size: 0.8rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: left;
+}
+.empty-hint {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}

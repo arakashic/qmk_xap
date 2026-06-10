@@ -1,0 +1,152 @@
+/* Radial color picker + RGB page styles (Task 5.5). Kept in a separate file to
+   avoid conflicts with parallel work on components.css / input.css. */
+
+/* ---- Radial hue picker (gold @radial-color-picker look) ---- */
+
+.rcp {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  user-select: none;
+}
+
+/* The hue ring: a full conic gradient with the center punched out by a radial
+   mask, leaving a ~52px-thick band. 0deg at top (knob sits at top for hue 0). */
+.rcp__rotator {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  cursor: grab;
+  background: conic-gradient(
+    from 0deg,
+    hsl(0, 100%, 50%),
+    hsl(60, 100%, 50%),
+    hsl(120, 100%, 50%),
+    hsl(180, 100%, 50%),
+    hsl(240, 100%, 50%),
+    hsl(300, 100%, 50%),
+    hsl(360, 100%, 50%)
+  );
+  -webkit-mask: radial-gradient(
+    circle at center,
+    transparent 0,
+    transparent 88px,
+    #000 88px
+  );
+  mask: radial-gradient(
+    circle at center,
+    transparent 0,
+    transparent 88px,
+    #000 88px
+  );
+}
+
+.rcp__rotator:active {
+  cursor: grabbing;
+}
+
+/* Center well showing the selected color. Sits inside the ring hole. */
+.rcp__well {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  margin: -70px 0 0 -70px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Draggable knob riding the ring band. Positioned via inline left/top. */
+.rcp__knob {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* ---- RGB page layout ---- */
+
+.rgb-page {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 16px;
+}
+
+.rgb-picker-col {
+  flex: 0 0 auto;
+  padding: 16px;
+}
+
+.rgb-controls-col {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+/* q-badge look: a small pill label above each slider. */
+.rgb-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1976d2;
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ---- Slider (restyled native range + tick labels) ---- */
+
+.rgb-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rgb-slider input[type='range'] {
+  width: 100%;
+  accent-color: #1976d2;
+}
+
+.rgb-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #757575;
+}
+
+/* ---- Enable/Disable toggle (q-btn-toggle, spread) ---- */
+
+.rgb-toggle {
+  display: flex;
+  width: 100%;
+  border: 1px solid #1976d2;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rgb-toggle button {
+  flex: 1 1 0;
+  padding: 8px 0;
+  background: #fff;
+  color: #000;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.rgb-toggle button.rgb-toggle-active {
+  background: #1976d2;
+  color: #fff;
+}
