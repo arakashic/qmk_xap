@@ -115,7 +115,7 @@ Protocol route types are generated from the HJSON specs in `xap-specs/assets` in
 
 ## Running
 
-Prerequisites: a Rust toolchain with the `wasm32-unknown-unknown` target, the [Dioxus CLI](https://dioxuslabs.com/learn/0.7/getting_started/) (`dx`), and — for the desktop app — the wry/GTK system libraries (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libxdo-dev`, `libsoup-3.0-dev`, `libudev-dev`).
+Prerequisites: a Rust toolchain with the `wasm32-unknown-unknown` target and the [Dioxus CLI](https://dioxuslabs.com/learn/0.7/getting_started/) (`dx`). The desktop app additionally needs, **on Linux only**, the wry/GTK system libraries (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libxdo-dev`, `libsoup-3.0-dev`, `libudev-dev`); on macOS and Windows the system WebView (WebKit / WebView2) is built in, so no extra packages are required. `build-css.sh` auto-downloads the matching Tailwind binary for Linux/macOS (x64 or arm64).
 
 Tailwind is built separately (it is not run by `dx`); the script downloads the pinned standalone v3 binary on first run:
 
