@@ -2,10 +2,8 @@
 resolver = "2"
 
 members = [
-    "src-tauri",
     "xap-specs",
     "xap-core",
-    "xap-wasm",
     "xap-ui"
 ]
 
