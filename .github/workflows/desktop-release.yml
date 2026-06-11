@@ -1,21 +1,27 @@
 name: Build desktop app
 
 # Bundles the native desktop app (Dioxus Desktop / wry + hidapi) for Linux and
-# uploads the artifact. Kept minimal (one OS); broader matrices are a follow-up.
+# macOS and uploads the artifacts.
 on:
   push:
     branches: [release]
   workflow_dispatch:
 
 jobs:
-  bundle-linux:
-    runs-on: ubuntu-22.04
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies (wry/GTK + libxdo + hidapi)
+      # Linux needs the wry/GTK stack; macOS uses the built-in WebKit (no deps).
+      - name: Install Linux system dependencies (wry/GTK + libxdo + hidapi)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -48,6 +54,6 @@ jobs:
       - name: Upload bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xap-ui-linux
+          name: xap-ui-${{ runner.os }}
           path: target/dx/xap-ui/release/
           if-no-files-found: error
