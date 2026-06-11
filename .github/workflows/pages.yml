@@ -1,19 +1,18 @@
 name: Deploy web app to GitHub Pages
 
-# Builds the browser (WebHID/WASM) front-end and publishes it to GitHub Pages.
-# Runs automatically on push to the branch below, or on demand from the Actions tab.
+# Builds the browser (WebHID/WASM) front-end with Dioxus (dx) and publishes it
+# to GitHub Pages. Runs on push to the public branch, or on demand.
 on:
   push:
-    branches: [dual-stack] # adjust to whichever branch holds the app
+    branches: [dual-stack] # the public-facing branch
   workflow_dispatch:
 
-# Permissions the official Pages deploy actions require.
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Only one Pages deployment at a time; let a newer run supersede an in-flight one.
+# Only one Pages deployment at a time; a newer run supersedes an in-flight one.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -32,32 +31,37 @@ jobs:
       - name: Cache cargo build
         uses: Swatinem/rust-cache@v2
 
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: latest
+      - name: Install the Dioxus CLI (dx)
+        uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall -y dioxus-cli@0.7.9
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
+      # WebHID's web-sys bindings are unstable-gated; the repo .cargo/config.toml
+      # already sets --cfg=web_sys_unstable_apis for the wasm target.
 
-      - name: Install JS dependencies
-        run: yarn install --frozen-lockfile
+      - name: Build Tailwind CSS (downloads the pinned v3 binary if absent)
+        run: ./xap-ui/build-css.sh
 
-      - name: Build WASM package (release)
-        run: wasm-pack build xap-wasm --target web --out-dir ../src/generated/xap-wasm
+      # GitHub project pages serve under /<repo>/, so the web build needs that
+      # base path. dx reads it from Dioxus.toml's [web.app] base_path; inject the
+      # repo name at build time so local dev (no base_path) is unaffected.
+      - name: Set the Pages base path
+        run: |
+          REPO="${GITHUB_REPOSITORY##*/}"
+          printf '\nbase_path = "%s"\n' "$REPO" >> xap-ui/Dioxus.toml
 
-      - name: Build static site (relative base so it works under the Pages subpath)
-        run: yarn vite:build --base=./
+      - name: Build the web app (release)
+        working-directory: xap-ui
+        run: dx build --platform web --release
 
+      # NOTE (verify on first publish): confirm the dx web output directory. For
+      # dx 0.7 it is typically target/dx/xap-ui/release/web/public.
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: target/dx/xap-ui/release/web/public
 
   deploy:
     needs: build
