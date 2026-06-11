@@ -71,6 +71,9 @@ pub fn App() -> Element {
     let broadcast_store = use_context_provider(BroadcastStore::new);
     let ui = use_context_provider(UiState::new);
 
+    // Desktop searches automatically (web shows an explicit Connect screen).
+    let requires_user_connect = backend.0.capabilities().requires_user_connect;
+
     // One-time startup: build the handler, register it, pump native events, and
     // seed known devices (App.vue's onMounted).
     use_hook(move || {
@@ -168,6 +171,20 @@ pub fn App() -> Element {
                 Err(e) => log::error!("initial devices_get failed: {e}"),
             }
         });
+    });
+
+    // Show a "Searching for XAP devices" overlay while no device is present
+    // (App.vue's watchEffect); desktop only — web uses the Connect screen.
+    use_effect(move || {
+        let no_devices = device_store.0.read().devices.is_empty();
+        let mut ui = ui;
+        let searching = no_devices && !requires_user_connect;
+        let active = ui.loading.peek().is_some();
+        if searching && !active {
+            ui.show_loading("Searching for XAP devices");
+        } else if !searching && active {
+            ui.hide_loading();
+        }
     });
 
     rsx! {
