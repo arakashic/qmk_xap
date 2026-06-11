@@ -1,10 +1,9 @@
 //! KeymapView port: per-layer key grid with selection, split tap/hold faces,
 //! the parameterised-template remap state machine, and the keycode picker.
 //!
-//! The desktop window auto-resize (`windowFit` / display-fit / ResizeObserver
-//! in KeymapView.vue) is intentionally NOT ported — it's a desktop ergonomic
-//! that was never ported to the prior stack either; the keymap renders and
-//! remaps correctly without it.
+//! The desktop window auto-resize (`windowFit` in KeymapView.vue) is ported via
+//! `util::window_fit` (desktop only). The secondary display-fit / ResizeObserver
+//! (capping the canvas height with a scrollbar) is not yet ported.
 
 use std::rc::Rc;
 
@@ -353,6 +352,18 @@ pub fn KeymapPage() -> Element {
             actions.update_keymap();
         });
     }
+
+    // Desktop: resize the window to fit the keymap when the device, layout,
+    // layer, keymap, or pending assignment changes (port of KeymapView.vue's
+    // windowFit). Web leaves the browser window untouched.
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::util::window_fit::use_window_autofit(move || {
+        let _ = selected_id();
+        let _ = selected_layout();
+        let _ = layer_tab();
+        keymap.read();
+        pending.read();
+    });
 
     let data = device_store.0.read();
     let device: Option<XapDeviceState> = data.selected_state().cloned();
