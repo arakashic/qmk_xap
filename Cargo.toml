@@ -7,6 +7,12 @@ members = [
     "xap-ui"
 ]
 
+# Dependencies don't need debuginfo in dev builds; workspace crates keep it.
+# "*" matches dependencies only, not workspace members. dx's desktop-dev/web-dev
+# profiles inherit `dev`, so this applies to them too.
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 opt-level = 'z'
 lto = 'fat'
