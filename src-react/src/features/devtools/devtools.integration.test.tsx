@@ -1,9 +1,9 @@
 import { renderHook, act } from '@testing-library/react'
 import { beforeEach, it, expect } from 'vitest'
-import { useDevtoolsStore } from '../../store/devtools'
+import { useDevtoolsStore, devtoolsSink } from '../../store/devtools'
 import { useUiStore } from '../../store/ui'
 import { MockXapClient } from '../../xap/mock/client'
-import { instrumentClient, type DevtoolsSink } from '../../xap/instrument'
+import { instrumentClient } from '../../xap/instrument'
 import { XapClientContext } from '../../queries/client-context'
 import { useDevtoolsSubscription } from './useDevtoolsSubscription'
 import type { XapClient } from '../../xap/client'
@@ -30,14 +30,8 @@ function makeWrapper(client: XapClient) {
 }
 
 it('remapKey produces a resolved call entry + a log broadcast entry', async () => {
-  const sink: DevtoolsSink = {
-    pushCall: (label) => useDevtoolsStore.getState().pushCall(label),
-    resolveCall: (id, status, latencyMs) =>
-      useDevtoolsStore.getState().resolveCall(id, status, latencyMs),
-  }
-
   const mock = new MockXapClient()
-  const client = instrumentClient(mock, sink)
+  const client = instrumentClient(mock, devtoolsSink)
 
   // Mount the subscription hook with the instrumented client as context
   renderHook(() => useDevtoolsSubscription(), {

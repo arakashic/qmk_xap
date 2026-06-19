@@ -46,7 +46,7 @@ export function TimelineRow({ entry }: Props) {
       <span style={{ flex: 1, color: '#cbd5e0' }}>{label}</span>
       {kind === 'call' && (
         <span style={{ flexShrink: 0, color: status === 'ok' ? '#9ae6b4' : status === 'error' ? '#fc8181' : '#4a5568' }}>
-          {status === 'pending' ? '…' : status === 'ok' ? `✓ ${latencyMs}ms` : `✗ ${latencyMs ?? '?'}ms`}
+          {status === 'pending' ? '…' : status === 'ok' ? `✓ ${latencyMs?.toFixed(1)}ms` : `✗ ${latencyMs?.toFixed(1) ?? '?'}ms`}
         </span>
       )}
     </div>

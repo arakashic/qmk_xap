@@ -68,3 +68,16 @@ it('pause button toggles paused state', () => {
   fireEvent.click(screen.getByText(/pause/i))
   expect(useDevtoolsStore.getState().paused).toBe(true)
 })
+
+it('resolved call row shows latency rounded to one decimal', () => {
+  useDevtoolsStore.setState({
+    entries: [
+      { id: '1', ts: Date.now(), kind: 'call', label: 'remapKey', status: 'ok', latencyMs: 2.7000000029802322 },
+    ],
+    dockOpen: true,
+    paused: false,
+    hidden: [],
+  })
+  render(<DevtoolsDock />)
+  expect(screen.getByText(/✓ 2\.7ms/)).toBeInTheDocument()
+})
