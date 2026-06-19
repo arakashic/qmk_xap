@@ -196,8 +196,47 @@ export const ugoState: XapDeviceState = {
     },
     encoder_count: 3,
   },
-  config_json: '{}',
+  config_json: '{"keyboard_name":"Protok Model II","tapping":{"tapping_term":200,"permissive_hold":true},"rgb_matrix":{"animations":{"solid_color":true},"max_brightness":150},"matrix_pins":{"rows":["B0","B1","B2","B3","B4","B5","B6"],"cols":["C0","C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","C11","C12","C13","C14","C15"]}}',
   secure_status: 'Unlocked',
+}
+
+export const miniState: XapDeviceState = {
+  id: 'mini40_locked',
+  info: {
+    xap: { version: 0x0200 },
+    qmk: {
+      version: '0.0.1',
+      board_ids: {
+        vendor_id: 0xfeed,
+        product_id: 0xa505,
+        product_version: 1,
+        qmk_unique_identifier: 0,
+      },
+      manufacturer: '[SIM] UGO Native Sim',
+      product_name: '[SIM] Mini 40% Sim',
+      hardware_id: '1111111111111111',
+      jump_to_bootloader_enabled: true,
+      eeprom_reset_enabled: false,
+    },
+    keymap: {
+      layer_count: 4,
+      get_keycode_enabled: true,
+      get_encoder_keycode_enabled: false,
+    },
+    remap: null,
+    lighting: null,
+  },
+  config: {
+    layouts: {
+      LAYOUT_gen2: {
+        layout: Object.values(ENTRIES),
+      },
+    },
+    matrix_size: { y: 7n, x: 16n },
+    encoder_count: 0,
+  },
+  config_json: '{"keyboard_name":"Mini 40%","tapping":{"tapping_term":175}}',
+  secure_status: 'Locked',
 }
 
 export const ugoKeymap: MappedKeymap = {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useXapClient } from './client-context'
 
 export const useDevices = () => {
@@ -22,4 +22,38 @@ export const useMappedKeymap = (id: string | null) => {
     queryFn: () => c.getMappedKeymap(id!),
     enabled: !!id,
   })
+}
+
+export const useSecureLock = (id: string) => {
+  const c = useXapClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => c.secureLock(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device', id] })
+      qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+  })
+}
+
+export const useSecureUnlock = (id: string) => {
+  const c = useXapClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => c.secureUnlock(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device', id] })
+      qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+  })
+}
+
+export const useJumpToBootloader = (id: string) => {
+  const c = useXapClient()
+  return useMutation({ mutationFn: () => c.jumpToBootloader(id) })
+}
+
+export const useReinitializeEeprom = (id: string) => {
+  const c = useXapClient()
+  return useMutation({ mutationFn: () => c.reinitializeEeprom(id) })
 }

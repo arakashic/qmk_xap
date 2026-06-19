@@ -52,4 +52,20 @@ describe('MockXapClient', () => {
     const updated = km1.keys[0].flat().find((k) => k && Number(k.layout.matrix.y) === row && Number(k.layout.matrix.x) === column)!
     expect(updated.key.code.key).toBe('KC_Z')
   })
+  it('listDevices returns two devices', async () => {
+    const c = new MockXapClient()
+    expect((await c.listDevices()).length).toBe(2)
+  })
+  it('secureLock then secureUnlock flips secure_status', async () => {
+    const c = new MockXapClient(); const [d] = await c.listDevices()
+    await c.secureLock(d.id)
+    expect((await c.getDeviceState(d.id)).secure_status).toBe('Locked')
+    await c.secureUnlock(d.id)
+    expect((await c.getDeviceState(d.id)).secure_status).toBe('Unlocked')
+  })
+  it('jumpToBootloader and reinitializeEeprom resolve', async () => {
+    const c = new MockXapClient(); const [d] = await c.listDevices()
+    await expect(c.jumpToBootloader(d.id)).resolves.toBeUndefined()
+    await expect(c.reinitializeEeprom(d.id)).resolves.toBeUndefined()
+  })
 })

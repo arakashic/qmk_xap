@@ -1,6 +1,6 @@
 import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from '../client'
 import type { XapDeviceState, MappedKeymap, XapEvent, XapConstants, KeyCode } from '../types'
-import { ugoState, ugoKeymap } from './fixtures'
+import { ugoState, ugoKeymap, miniState } from './fixtures'
 import { ugoConstants } from './constants'
 import { ugoEncoders } from './encoders'
 
@@ -11,12 +11,17 @@ export class MockXapClient implements XapClient {
 
   constructor() {
     // Deep-clone fixtures so mutations don't affect shared fixture objects.
-    const keymap: MappedKeymap = JSON.parse(
-      JSON.stringify(ugoKeymap, (_k, v) => (typeof v === 'bigint' ? `__bigint__${v}` : v)),
-      (_k, v) => (typeof v === 'string' && v.startsWith('__bigint__') ? BigInt(v.slice(10)) : v),
-    )
-    const encoders: EncoderKeymap = JSON.parse(JSON.stringify(ugoEncoders))
-    this.devices = new Map([[ugoState.id, { state: ugoState, keymap, encoders }]])
+    // bigint-safe replacer/reviver needed for state (matrix_size) and keymap.
+    const bigintReplacer = (_k: string, v: unknown) => (typeof v === 'bigint' ? `__bigint__${v}` : v)
+    const bigintReviver = (_k: string, v: unknown) =>
+      typeof v === 'string' && v.startsWith('__bigint__') ? BigInt(v.slice(10)) : v
+    const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj, bigintReplacer), bigintReviver)
+
+    const cloneEncoders = (): EncoderKeymap => JSON.parse(JSON.stringify(ugoEncoders))
+    this.devices = new Map([
+      [ugoState.id, { state: deepClone(ugoState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders() }],
+      [miniState.id, { state: deepClone(miniState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders() }],
+    ])
   }
 
   async listDevices(): Promise<DeviceSummary[]> {
@@ -80,6 +85,28 @@ export class MockXapClient implements XapClient {
     const slot = e.encoders[target.layer]?.[target.encoder]
     if (!slot) throw new Error(`encoder ${target.encoder} layer ${target.layer} not found`)
     slot[target.clockwise ? 'cw' : 'ccw'] = code
+  }
+
+  async secureLock(id: string): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    e.state.secure_status = 'Locked'
+  }
+
+  async secureUnlock(id: string): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    e.state.secure_status = 'Unlocked'
+  }
+
+  async jumpToBootloader(id: string): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+  }
+
+  async reinitializeEeprom(id: string): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
   }
 
   subscribe(_h: (e: XapEvent) => void): Unsubscribe {

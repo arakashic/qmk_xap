@@ -22,6 +22,12 @@ export interface XapClient {
   getEncoderKeymap(id: string): Promise<EncoderKeymap>
   // UI-facing rich KeyCode (real u16 deferred to Plan 6). clockwise: 0 = CCW, 1 = CW.
   setEncoderKeycode(id: string, target: { layer: number; encoder: number; clockwise: number }, code: KeyCode): Promise<void>
-  // later plans: secureLock/Unlock, lighting get/set/save, jumpToBootloader, reinitializeEeprom
+  // UI-facing: real effects deferred to Plan 6. Mock: flips secure_status immediately.
+  secureLock(id: string): Promise<void>
+  secureUnlock(id: string): Promise<void>
+  // Mock: resolved no-ops; real effects deferred to Plan 6.
+  jumpToBootloader(id: string): Promise<void>
+  reinitializeEeprom(id: string): Promise<void>
+  // later plans: lighting get/set/save
   subscribe(handler: (e: XapEvent) => void): Unsubscribe
 }
