@@ -50,7 +50,8 @@ describe('BuilderChip', () => {
       hole: 'tap',
     }
     render(<BuilderChip pending={mtPending} />)
-    expect(screen.getByText(/MT\(0x01/)).toBeInTheDocument()
+    // MT chip now shows "Ctrl_T( ... )" via modName
+    expect(screen.getByText(/Ctrl_T/)).toBeInTheDocument()
   })
 
   it('renders LM builder string with mod hole', () => {

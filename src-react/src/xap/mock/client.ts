@@ -6,9 +6,16 @@ import { ugoConstants } from './constants'
 type Entry = { state: XapDeviceState; keymap: MappedKeymap }
 
 export class MockXapClient implements XapClient {
-  private devices = new Map<string, Entry>([
-    [ugoState.id, { state: ugoState, keymap: ugoKeymap }],
-  ])
+  private devices: Map<string, Entry>
+
+  constructor() {
+    // Deep-clone the keymap so mutations (remapKey) don't affect the shared fixture.
+    const keymap: MappedKeymap = JSON.parse(
+      JSON.stringify(ugoKeymap, (_k, v) => (typeof v === 'bigint' ? `__bigint__${v}` : v)),
+      (_k, v) => (typeof v === 'string' && v.startsWith('__bigint__') ? BigInt(v.slice(10)) : v),
+    )
+    this.devices = new Map([[ugoState.id, { state: ugoState, keymap }]])
+  }
 
   async listDevices(): Promise<DeviceSummary[]> {
     return [...this.devices.values()].map(({ state }) => ({

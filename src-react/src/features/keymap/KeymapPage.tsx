@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useUiStore } from '@/store/ui'
 import { usePickerStore } from '@/store/picker'
 import { useMappedKeymap } from '@/queries/devices'
@@ -18,13 +18,23 @@ export function KeymapPage() {
   const picker = usePickerStore()
   const remapKey = useRemapKey(activeDeviceId ?? '')
 
-  // Handle board key click: open picker for this target, cancel any pending fill.
-  const handleSelectKey = useCallback(
-    (target: FillTarget) => {
-      if (picker.pending) {
-        // Clicking another key while pending = cancel (no write)
+  // Document-level Esc: cancel pending fill while pending is set.
+  useEffect(() => {
+    if (!picker.pending) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
         picker.setPending(null)
       }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [picker, picker.pending])
+
+  // Handle board key click: open picker for this target, cancel any pending fill.
+  // picker.open() already clears pending, so no explicit setPending(null) needed.
+  const handleSelectKey = useCallback(
+    (target: FillTarget) => {
       picker.open(target)
     },
     [picker],

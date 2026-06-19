@@ -4,30 +4,18 @@ import { KeyCap } from './KeyCap'
 
 // Build a synthetic split KeyCode for the pending preview.
 // Renders the chosen hold as filled + tap zone as the dashed hole.
+// legendOf derives split labels from template.kind/mod_mask/layer — no extra fields needed.
 function pendingPreviewCode(fill: PendingFill): KeyCode | null {
   if (fill.hole !== 'tap') return null
   if (fill.kind === 'MT') {
-    // mod_mask → short label; we use a simple lookup for display
-    const MOD_LABEL: Record<number, string> = {
-      0x01: 'Ctrl', 0x02: 'Shift', 0x04: 'Alt', 0x08: 'GUI',
-      0x10: 'RCtrl', 0x20: 'RShift', 0x40: 'RAlt', 0x80: 'RGUI',
-      0x07: 'Meh', 0x0F: 'Hyper',
-    }
-    const holdLabel = MOD_LABEL[fill.fixed.mod_mask ?? 0] ?? `0x${(fill.fixed.mod_mask ?? 0).toString(16)}`
     return {
       key: `MT(${fill.fixed.mod_mask ?? 0},?)`,
-      label: '?',
-      group: 'ModTap',
-      top: holdLabel,
       template: { kind: 'ModTap', mod_mask: fill.fixed.mod_mask ?? 0, tap_kc: null },
     }
   }
   if (fill.kind === 'LT') {
     return {
       key: `LT(${fill.fixed.layer ?? 0},?)`,
-      label: '?',
-      group: 'LayerTap',
-      bottom: `L${fill.fixed.layer ?? 0}`,
       template: { kind: 'LayerTap', layer: fill.fixed.layer ?? 0, tap_kc: null },
     }
   }

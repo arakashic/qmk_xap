@@ -1,3 +1,4 @@
+import { modName } from '@/features/keymap/legend'
 import type { PendingFill } from './templateFill'
 
 interface BuilderChipProps {
@@ -11,7 +12,7 @@ function buildLabel(pending: PendingFill): { prefix: string; suffix: string } {
   }
   if (pending.kind === 'MT') {
     const mod = pending.fixed.mod_mask ?? 0
-    return { prefix: `MT(0x${mod.toString(16).toUpperCase().padStart(2, '0')}, `, suffix: ')' }
+    return { prefix: `${modName(mod)}_T( `, suffix: ' )' }
   }
   // LM
   const layer = pending.fixed.layer ?? 0

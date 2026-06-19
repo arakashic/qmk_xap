@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { KeycodeViewTab, KeyCode } from '@/xap/types'
+import { modName } from '@/features/keymap/legend'
 import { filterCodes } from './fuzzy'
 import { PickerKey } from './PickerKey'
 
@@ -58,13 +59,6 @@ function expandLayerTemplate(kind: string, layerCount: number): KeyCode[] {
   })
 }
 
-// Human-readable short name for a QMK mod string
-const MOD_SHORT: Record<string, string> = {
-  LCTL: 'Ctrl', LSFT: 'Shift', LALT: 'Alt', LGUI: 'GUI',
-  RCTL: 'RCtrl', RSFT: 'RShift', RALT: 'RAlt', RGUI: 'RGUI',
-  MEH: 'Meh', HYPR: 'Hyper',
-}
-
 // QMK mod bit masks (MOD_LCTL=0x01, MOD_LSFT=0x02, etc.)
 const MOD_MASK: Record<string, number> = {
   LCTL: 0x01, LSFT: 0x02, LALT: 0x04, LGUI: 0x08,
@@ -78,17 +72,18 @@ const MOD_MASK: Record<string, number> = {
 function expandModTemplate(kind: string, mods: string[]): KeyCode[] {
   return mods.map((mod) => {
     const mask = MOD_MASK[mod] ?? 0
+    const label = modName(mask)
     if (kind === 'MT') {
       return {
         key: `MT(${mod})`,
-        label: MOD_SHORT[mod] ?? mod,
+        label,
         template: { kind: 'ModTap', mod_mask: mask, tap_kc: null } as KeyCode['template'],
       }
     }
     // QK_MODS (Modified) — single-step, no hole needed
     return {
       key: `${kind}(${mod})`,
-      label: MOD_SHORT[mod] ?? mod,
+      label,
     }
   })
 }

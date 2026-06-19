@@ -56,7 +56,7 @@ describe('legendOf', () => {
 
 describe('modName', () => {
   it('0x01 -> Ctrl', () => expect(modName(0x01)).toBe('Ctrl'))
-  it('0x02 -> Sft', () => expect(modName(0x02)).toBe('Sft'))
+  it('0x02 -> Shift', () => expect(modName(0x02)).toBe('Shift'))
   it('0x04 -> Alt', () => expect(modName(0x04)).toBe('Alt'))
   it('0x08 -> GUI', () => expect(modName(0x08)).toBe('GUI'))
   it('0x07 -> Meh', () => expect(modName(0x07)).toBe('Meh'))

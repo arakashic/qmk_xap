@@ -38,7 +38,7 @@ export function modName(mod_mask: number): string {
 
   const names: string[] = []
   if (active & 0x01) names.push(r & 0x10 ? 'RCtrl' : 'Ctrl')
-  if (active & 0x02) names.push(r & 0x20 ? 'RSft' : 'Sft')
+  if (active & 0x02) names.push(r & 0x20 ? 'RShift' : 'Shift')
   if (active & 0x04) names.push(r & 0x40 ? 'RAlt' : 'Alt')
   if (active & 0x08) names.push(r & 0x80 ? 'RGUI' : 'GUI')
 
