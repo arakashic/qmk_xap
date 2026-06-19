@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { capabilitiesOf, hardwareStatsOf } from './capabilities'
+import { FirmwareConfigModal } from './FirmwareConfigModal'
 
 interface DeviceCardProps {
   state: XapDeviceState
@@ -113,23 +114,24 @@ export function DeviceCard({ state, isActive, onSetActive }: DeviceCardProps) {
         )}
       </div>
 
-      {/* Action row — only rendered when there's content; Tasks 4-5 will add active-card actions */}
-      {!isActive && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: '1px solid hsl(var(--border))',
-          }}
-        >
+      {/* Action row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: '1px solid hsl(var(--border))',
+        }}
+      >
+        <FirmwareConfigModal state={state} />
+        {!isActive && (
           <Button size="sm" variant="default" onClick={onSetActive}>
             Set active
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </Card>
   )
 }
