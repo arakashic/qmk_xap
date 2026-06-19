@@ -1,19 +1,29 @@
 import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from './client'
-import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode } from './types'
-import type { Result } from '@gen/xap-types'
+import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode, KeycodeTemplate } from './types'
+import type { Result, RemappingSetKeycodeArg, RemappingSetEncoderKeycodeArg } from '@gen/xap-types'
 import { unwrap } from './result'
 
 // Structural interface covering only the commands used in this adapter.
-// Extended in Tasks 2-3 for mutations and encoder reads.
 export interface XapCommands {
   devicesGet(): Promise<XapDeviceState[]>
   deviceGet(id: string): Promise<Result<XapDeviceState, string>>
   keymapGet(id: string, layout: string): Promise<Result<MappedKeymap, string>>
   xapConstantsGet(): Promise<XapConstants>
+  remapKey(id: string, arg: RemappingSetKeycodeArg): Promise<Result<null, string>>
+  keycodeTemplateEncode(template: KeycodeTemplate): Promise<Result<number, string>>
+  remappingSetEncoderKeycode(id: string, arg: RemappingSetEncoderKeycodeArg): Promise<Result<null, string>>
+  encoderKeymapGet(id: string): Promise<Result<KeyCode[][][], string>>
 }
 
 export class RealXapClient implements XapClient {
   constructor(private commands: XapCommands) {}
+
+  private async encodeKeyCode(code: KeyCode): Promise<number> {
+    if (code.template) {
+      return unwrap(await this.commands.keycodeTemplateEncode(code.template))
+    }
+    return code.code ?? 0
+  }
 
   async listDevices(): Promise<DeviceSummary[]> {
     const states = await this.commands.devicesGet()
@@ -39,18 +49,19 @@ export class RealXapClient implements XapClient {
     return await this.commands.xapConstantsGet()
   }
 
-  // --- Stubs for Task 2/3 ---
-
-  async remapKey(_id: string, _target: { layer: number; row: number; column: number }, _code: KeyCode): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async remapKey(id: string, target: { layer: number; row: number; column: number }, code: KeyCode): Promise<void> {
+    const keycode = await this.encodeKeyCode(code)
+    unwrap(await this.commands.remapKey(id, { ...target, keycode }))
   }
 
-  async getEncoderKeymap(_id: string): Promise<EncoderKeymap> {
-    throw new Error('not implemented (Task 2)')
+  async getEncoderKeymap(id: string): Promise<EncoderKeymap> {
+    const tensor = unwrap(await this.commands.encoderKeymapGet(id))
+    return tensor.map((layer) => layer.map((dirs) => ({ ccw: dirs[0], cw: dirs[1] })))
   }
 
-  async setEncoderKeycode(_id: string, _target: { layer: number; encoder: number; clockwise: number }, _code: KeyCode): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async setEncoderKeycode(id: string, target: { layer: number; encoder: number; clockwise: number }, code: KeyCode): Promise<void> {
+    const keycode = await this.encodeKeyCode(code)
+    unwrap(await this.commands.remappingSetEncoderKeycode(id, { ...target, keycode }))
   }
 
   async secureLock(_id: string): Promise<void> {

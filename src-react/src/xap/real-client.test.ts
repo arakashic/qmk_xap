@@ -3,7 +3,7 @@ import { RealXapClient } from './real-client'
 import { unwrap } from './result'
 import { ugoState, miniState, ugoKeymap } from './mock/fixtures'
 import { ugoConstants } from './mock/constants'
-import type { XapDeviceState, MappedKeymap, XapConstants } from './types'
+import type { XapDeviceState, MappedKeymap, XapConstants, KeyCode } from './types'
 import type { XapCommands } from './real-client'
 
 // ---------------------------------------------------------------------------
@@ -32,6 +32,10 @@ function makeFakeCommands(overrides?: Partial<XapCommands>): XapCommands {
     deviceGet: vi.fn().mockResolvedValue({ status: 'ok', data: ugoState }),
     keymapGet: vi.fn().mockResolvedValue({ status: 'ok', data: ugoKeymap }),
     xapConstantsGet: vi.fn().mockResolvedValue(ugoConstants),
+    remapKey: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    keycodeTemplateEncode: vi.fn().mockResolvedValue({ status: 'ok', data: 0x4123 }),
+    remappingSetEncoderKeycode: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    encoderKeymapGet: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
     ...overrides,
   }
 }
@@ -110,5 +114,82 @@ describe('RealXapClient queries', () => {
     expect(constants.keycode_view.tabs.map((t) => t.id)).toEqual(
       ugoConstants.keycode_view.tabs.map((t) => t.id),
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 2: remapKey / setEncoderKeycode / getEncoderKeymap
+// ---------------------------------------------------------------------------
+
+describe('RealXapClient mutations', () => {
+  it('(a) remapKey with basic KeyCode uses code directly, no keycodeTemplateEncode call', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands)
+    const code: KeyCode = { key: 'KC_A', code: 0x04 }
+    await client.remapKey('dev1', { layer: 0, row: 1, column: 2 }, code)
+    expect(fakeCommands.keycodeTemplateEncode).not.toHaveBeenCalled()
+    expect(fakeCommands.remapKey).toHaveBeenCalledWith('dev1', {
+      layer: 0,
+      row: 1,
+      column: 2,
+      keycode: 0x04,
+    })
+  })
+
+  it('(b) remapKey with template KeyCode calls keycodeTemplateEncode then remapKey with encoded u16', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands)
+    const template = { kind: 'LayerTap' as const, layer: 1, tap_kc: 0x04 }
+    const code: KeyCode = { key: 'LT(1,KC_A)', template }
+    await client.remapKey('dev1', { layer: 0, row: 1, column: 2 }, code)
+    expect(fakeCommands.keycodeTemplateEncode).toHaveBeenCalledWith(template)
+    expect(fakeCommands.remapKey).toHaveBeenCalledWith('dev1', {
+      layer: 0,
+      row: 1,
+      column: 2,
+      keycode: 0x4123,
+    })
+  })
+
+  it('(c) setEncoderKeycode with template calls keycodeTemplateEncode then remappingSetEncoderKeycode', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands)
+    const template = { kind: 'LayerTap' as const, layer: 2, tap_kc: null }
+    const code: KeyCode = { key: 'LT(2)', template }
+    await client.setEncoderKeycode('dev1', { layer: 0, encoder: 1, clockwise: 1 }, code)
+    expect(fakeCommands.keycodeTemplateEncode).toHaveBeenCalledWith(template)
+    expect(fakeCommands.remappingSetEncoderKeycode).toHaveBeenCalledWith('dev1', {
+      layer: 0,
+      encoder: 1,
+      clockwise: 1,
+      keycode: 0x4123,
+    })
+  })
+
+  it('(d) getEncoderKeymap maps [layer][encoder][dir] tensor to {ccw, cw}[][]', async () => {
+    const kcA: KeyCode = { key: 'KC_A', code: 0x04 }
+    const kcB: KeyCode = { key: 'KC_B', code: 0x05 }
+    const kcC: KeyCode = { key: 'KC_C', code: 0x06 }
+    const kcD: KeyCode = { key: 'KC_D', code: 0x07 }
+    // tensor: [layer][encoder][dir]  -> 1 layer, 2 encoders, dir[0]=ccw dir[1]=cw
+    const tensor: KeyCode[][][] = [[[kcA, kcB], [kcC, kcD]]]
+    const fakeCommands = makeFakeCommands({
+      encoderKeymapGet: vi.fn().mockResolvedValue({ status: 'ok', data: tensor }),
+    })
+    const client = new RealXapClient(fakeCommands)
+    const km = await client.getEncoderKeymap('dev1')
+    expect(km).toHaveLength(1)          // 1 layer
+    expect(km[0]).toHaveLength(2)       // 2 encoders
+    expect(km[0][0]).toEqual({ ccw: kcA, cw: kcB })
+    expect(km[0][1]).toEqual({ ccw: kcC, cw: kcD })
+  })
+
+  it('(e) encode failure from keycodeTemplateEncode propagates as throw', async () => {
+    const fakeCommands = makeFakeCommands({
+      keycodeTemplateEncode: vi.fn().mockResolvedValue({ status: 'error', error: 'bad template' }),
+    })
+    const client = new RealXapClient(fakeCommands)
+    const code: KeyCode = { key: 'LT(0,KC_A)', template: { kind: 'LayerTap', layer: 0, tap_kc: 0x04 } }
+    await expect(client.remapKey('dev1', { layer: 0, row: 0, column: 0 }, code)).rejects.toThrow('bad template')
   })
 })
