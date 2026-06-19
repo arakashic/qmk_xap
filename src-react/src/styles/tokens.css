@@ -15,5 +15,8 @@
   --fam-layer-bg: #eff6ff; --fam-layer-bd: #93c5fd; --fam-layer-fg: #3b82f6;
   --fam-modtap-bg: #f5f3ff; --fam-modtap-bd: #c4b5fd; --fam-modtap-fg: #6d28d9;
   --fam-layermod-bg: #ecfeff; --fam-layermod-bd: #67e8f9; --fam-layermod-fg: #0891b2;
-  --fam-modified-bg: #fff7ed; --fam-modified-bd: #fdba74;
+  --fam-modified-bg: #fff7ed; --fam-modified-bd: #fdba74; --fam-modified-fg: #92400e;
+  /* hold-zone tints (split-cap top half; distinct from cap-bg tints) */
+  --fam-layer-hold-bg: #dbeafe; --fam-layer-hold-fg: #1d4ed8;
+  --fam-modtap-hold-bg: #ede9fe; --fam-modtap-hold-fg: #6d28d9;
 }

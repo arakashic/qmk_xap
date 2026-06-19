@@ -47,17 +47,17 @@ const FAMILY_FG: Record<string, string> = {
   layer:    'var(--fam-layer-fg)',
   modtap:   'var(--fam-modtap-fg)',
   layermod: 'var(--fam-layermod-fg)',
-  modified: '#92400e',
+  modified: 'var(--fam-modified-fg)',
 }
 
 const HOLD_STYLE: Record<string, React.CSSProperties> = {
-  layer:  { background: '#dbeafe', color: '#1d4ed8' },
-  modtap: { background: '#ede9fe', color: '#6d28d9' },
+  layer:  { background: 'var(--fam-layer-hold-bg)',  color: 'var(--fam-layer-hold-fg)' },
+  modtap: { background: 'var(--fam-modtap-hold-bg)', color: 'var(--fam-modtap-hold-fg)' },
 }
 
 // ---- render helpers --------------------------------------------------------
 
-function renderLegend(legend: LegendModel, live: boolean, resolvedCode?: KeyCode): React.ReactNode {
+function renderLegend(legend: LegendModel, live: boolean, width: number, height: number, resolvedCode?: KeyCode): React.ReactNode {
   switch (legend.kind) {
     case 'basic': {
       return (
@@ -118,18 +118,18 @@ function renderLegend(legend: LegendModel, live: boolean, resolvedCode?: KeyCode
 
     case 'trns': {
       if (live && resolvedCode) {
-        // Ghost the resolved key at 35% opacity + green live dot
-        const ghostLegend = legendOf(resolvedCode)
+        // Ghost the resolved key recursively at 35% opacity + green live dot.
+        // No stripe background applied (m3: clean cap behind the ghost).
         return (
           <>
             <span style={{ position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#38a169' }} />
-            <span style={{ opacity: 0.35, fontSize: 15 }}>
-              {ghostText(ghostLegend)}
+            <span style={{ opacity: 0.35, display: 'flex' }}>
+              <KeyCap code={resolvedCode} width={width} height={height} />
             </span>
           </>
         )
       }
-      // Non-live: stripe background + ▽ glyph
+      // Non-live: stripe background (applied via capStyle) + ▽ glyph
       return <span style={{ color: '#94a3b8', fontSize: 16 }}>▽</span>
     }
 
@@ -140,7 +140,7 @@ function renderLegend(legend: LegendModel, live: boolean, resolvedCode?: KeyCode
 
     case 'hex': {
       return (
-        <span style={{ fontSize: 9, fontFamily: '"JetBrains Mono", monospace', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 5px', color: '#92400e' }}>
+        <span style={{ fontSize: 9, fontFamily: '"JetBrains Mono", monospace', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 5px', color: 'var(--fam-modified-fg)' }}>
           {`0x${legend.code.toString(16).toUpperCase().padStart(4, '0')}`}
         </span>
       )
@@ -148,21 +148,7 @@ function renderLegend(legend: LegendModel, live: boolean, resolvedCode?: KeyCode
   }
 }
 
-/** Extract a simple text representation from a resolved legend (for ghost rendering). */
-function ghostText(legend: LegendModel): string {
-  switch (legend.kind) {
-    case 'basic': return legend.label
-    case 'split': return legend.tap
-    case 'descriptor': return legend.payload
-    case 'prefix': return legend.payload
-    case 'modified': return legend.output
-    case 'trns': return '▽'
-    case 'no': return ''
-    case 'hex': return `0x${legend.code.toString(16).toUpperCase()}`
-  }
-}
-
-function capStyle(legend: LegendModel, width: number, height: number): React.CSSProperties {
+function capStyle(legend: LegendModel, width: number, height: number, liveGhost: boolean): React.CSSProperties {
   const size: React.CSSProperties = { width, height }
 
   // Split caps need column layout without centering (children fill rows)
@@ -171,9 +157,9 @@ function capStyle(legend: LegendModel, width: number, height: number): React.CSS
     ? { justifyContent: 'flex-start', padding: 0 }
     : {}
 
-  // KC_TRNS stripe background
+  // KC_TRNS stripe background: only for non-live render (m3: clean cap behind live ghost)
   const isTrns = legend.kind === 'trns'
-  const trnsOverride: React.CSSProperties = isTrns
+  const trnsOverride: React.CSSProperties = isTrns && !liveGhost
     ? { background: 'repeating-linear-gradient(45deg,#fff,#fff 5px,#f8fafc 5px,#f8fafc 10px)' }
     : {}
 
@@ -183,15 +169,13 @@ function capStyle(legend: LegendModel, width: number, height: number): React.CSS
     ? { background: '#f1f5f9', borderStyle: 'dashed', borderColor: '#cbd5e0' }
     : {}
 
-  // Family tints
+  // Family tints (C2: removed dead third branch — descriptors already covered by first branch)
   const familyStyle: React.CSSProperties =
     (legend.kind === 'split' || legend.kind === 'descriptor') && legend.family
       ? FAMILY_STYLE[legend.family] ?? {}
       : legend.kind === 'modified'
         ? FAMILY_STYLE.modified
-        : legend.kind === 'descriptor' && legend.family === 'layermod'
-          ? FAMILY_STYLE.layermod
-          : {}
+        : {}
 
   return { ...BASE, ...size, ...splitOverride, ...trnsOverride, ...noOverride, ...familyStyle }
 }
@@ -200,10 +184,11 @@ function capStyle(legend: LegendModel, width: number, height: number): React.CSS
 
 export function KeyCap({ code, live = false, resolvedCode, width = CAP_SIZE, height = CAP_SIZE }: KeyCapProps) {
   const legend = legendOf(code)
-  const style = capStyle(legend, width, height)
+  const liveGhost = legend.kind === 'trns' && live && resolvedCode !== undefined
+  const style = capStyle(legend, width, height, liveGhost)
   return (
     <div style={style}>
-      {renderLegend(legend, live, resolvedCode)}
+      {renderLegend(legend, live, width, height, resolvedCode)}
     </div>
   )
 }

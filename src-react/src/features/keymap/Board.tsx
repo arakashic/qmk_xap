@@ -49,7 +49,7 @@ export function Board({ keymap, layer }: BoardProps) {
         // Use key-unit sizing and key radius (not cap radius)
         return (
           <div
-            key={`${k.layout.matrix.y}-${k.layout.matrix.x}`}
+            key={`${k.layout.x}-${k.layout.y}`}
             style={{ position: 'absolute', left, top, borderRadius: 'var(--key-radius)' }}
           >
             <KeyCap code={k.key.code} width={w} height={h} />
