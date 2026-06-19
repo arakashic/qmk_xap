@@ -219,6 +219,7 @@ describe('RealXapClient mutations', () => {
     const client = new RealXapClient(fakeCommands, silentEvents)
     const code: KeyCode = { key: 'LT(0,KC_A)', template: { kind: 'LayerTap', layer: 0, tap_kc: 0x04 } }
     await expect(client.remapKey('dev1', { layer: 0, row: 0, column: 0 }, code)).rejects.toThrow('bad template')
+    expect(fakeCommands.remapKey).not.toHaveBeenCalled()
   })
 })
 

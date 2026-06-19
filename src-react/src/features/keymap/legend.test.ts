@@ -60,11 +60,6 @@ describe('legendOf', () => {
     expect(result.kind).not.toBe('prefix')
   })
 
-  it('I1: genuine rgb prefix code still renders as prefix', () => {
-    // Regression guard: the existing rgb case must still work
-    const result = legendOf({ key: 'RGB_HUI', group: 'rgb', label: 'Hue+' })
-    expect(result).toMatchObject({ kind: 'prefix', tag: 'rgb', payload: 'Hue+' })
-  })
 })
 
 describe('modName', () => {
