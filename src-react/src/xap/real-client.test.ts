@@ -3,8 +3,9 @@ import { RealXapClient } from './real-client'
 import { unwrap } from './result'
 import { ugoState, miniState, ugoKeymap } from './mock/fixtures'
 import { ugoConstants } from './mock/constants'
-import type { XapDeviceState, MappedKeymap, XapConstants, KeyCode } from './types'
-import type { XapCommands } from './real-client'
+import type { XapDeviceState, MappedKeymap, XapConstants, KeyCode, XapEvent } from './types'
+import type { XapCommands, XapEventSource } from './real-client'
+import type { Unsubscribe } from './client'
 
 // ---------------------------------------------------------------------------
 // unwrap unit tests
@@ -36,9 +37,33 @@ function makeFakeCommands(overrides?: Partial<XapCommands>): XapCommands {
     keycodeTemplateEncode: vi.fn().mockResolvedValue({ status: 'ok', data: 0x4123 }),
     remappingSetEncoderKeycode: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
     encoderKeymapGet: vi.fn().mockResolvedValue({ status: 'ok', data: [] }),
+    xapSecureLock: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    xapSecureUnlock: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    qmkJumpToBootloader: vi.fn().mockResolvedValue({ status: 'ok', data: 0 }),
+    qmkReinitializeEeprom: vi.fn().mockResolvedValue({ status: 'ok', data: 0 }),
     ...overrides,
   }
 }
+
+// A fake event source that lets tests push events to registered handlers.
+function makeFakeEvents(): XapEventSource & { push(e: XapEvent): void } {
+  const handlers: Array<(e: XapEvent) => void> = []
+  return {
+    on(handler) {
+      handlers.push(handler)
+      return () => {
+        const i = handlers.indexOf(handler)
+        if (i !== -1) handlers.splice(i, 1)
+      }
+    },
+    push(e) {
+      for (const h of handlers) h(e)
+    },
+  }
+}
+
+// Silent event source for tests that don't need events.
+const silentEvents: XapEventSource = { on: () => () => {} }
 
 // ---------------------------------------------------------------------------
 // RealXapClient query method tests
@@ -46,7 +71,7 @@ function makeFakeCommands(overrides?: Partial<XapCommands>): XapCommands {
 
 describe('RealXapClient queries', () => {
   it('listDevices returns DeviceSummary[] mapped from XapDeviceState[]', async () => {
-    const client = new RealXapClient(makeFakeCommands())
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
     const devices = await client.listDevices()
     expect(devices).toHaveLength(2)
     expect(devices[0]).toEqual({
@@ -67,6 +92,7 @@ describe('RealXapClient queries', () => {
     const noInfoState: XapDeviceState = { ...ugoState, info: null }
     const client = new RealXapClient(
       makeFakeCommands({ devicesGet: vi.fn().mockResolvedValue([noInfoState]) }),
+      silentEvents,
     )
     const [d] = await client.listDevices()
     expect(d.product).toBe('Unknown')
@@ -74,7 +100,7 @@ describe('RealXapClient queries', () => {
   })
 
   it('getDeviceState unwraps Result<XapDeviceState>', async () => {
-    const client = new RealXapClient(makeFakeCommands())
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
     const state = await client.getDeviceState(ugoState.id)
     expect(state.id).toBe(ugoState.id)
   })
@@ -82,19 +108,20 @@ describe('RealXapClient queries', () => {
   it('getDeviceState throws when command returns error', async () => {
     const client = new RealXapClient(
       makeFakeCommands({ deviceGet: vi.fn().mockResolvedValue({ status: 'error', error: 'device not found' }) }),
+      silentEvents,
     )
     await expect(client.getDeviceState('bad-id')).rejects.toThrow('device not found')
   })
 
   it('getMappedKeymap returns MappedKeymap using first layout from device config', async () => {
-    const client = new RealXapClient(makeFakeCommands())
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
     const km = await client.getMappedKeymap(ugoState.id)
     expect(km.keys.length).toBeGreaterThan(0)
   })
 
   it('getMappedKeymap calls keymapGet with first layout key', async () => {
     const fakeCommands = makeFakeCommands()
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     await client.getMappedKeymap(ugoState.id)
     // The first layout key in ugoState.config.layouts is 'LAYOUT_gen2'
     expect(fakeCommands.keymapGet).toHaveBeenCalledWith(ugoState.id, 'LAYOUT_gen2')
@@ -103,12 +130,13 @@ describe('RealXapClient queries', () => {
   it('getMappedKeymap throws when keymapGet returns error', async () => {
     const client = new RealXapClient(
       makeFakeCommands({ keymapGet: vi.fn().mockResolvedValue({ status: 'error', error: 'keymap fetch failed' }) }),
+      silentEvents,
     )
     await expect(client.getMappedKeymap(ugoState.id)).rejects.toThrow('keymap fetch failed')
   })
 
   it('getConstants returns XapConstants directly (no unwrap)', async () => {
-    const client = new RealXapClient(makeFakeCommands())
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
     const constants = await client.getConstants()
     expect(constants.keycode_view.tabs.length).toBeGreaterThan(0)
     expect(constants.keycode_view.tabs.map((t) => t.id)).toEqual(
@@ -124,7 +152,7 @@ describe('RealXapClient queries', () => {
 describe('RealXapClient mutations', () => {
   it('(a) remapKey with basic KeyCode uses code directly, no keycodeTemplateEncode call', async () => {
     const fakeCommands = makeFakeCommands()
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     const code: KeyCode = { key: 'KC_A', code: 0x04 }
     await client.remapKey('dev1', { layer: 0, row: 1, column: 2 }, code)
     expect(fakeCommands.keycodeTemplateEncode).not.toHaveBeenCalled()
@@ -138,7 +166,7 @@ describe('RealXapClient mutations', () => {
 
   it('(b) remapKey with template KeyCode calls keycodeTemplateEncode then remapKey with encoded u16', async () => {
     const fakeCommands = makeFakeCommands()
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     const template = { kind: 'LayerTap' as const, layer: 1, tap_kc: 0x04 }
     const code: KeyCode = { key: 'LT(1,KC_A)', template }
     await client.remapKey('dev1', { layer: 0, row: 1, column: 2 }, code)
@@ -153,7 +181,7 @@ describe('RealXapClient mutations', () => {
 
   it('(c) setEncoderKeycode with template calls keycodeTemplateEncode then remappingSetEncoderKeycode', async () => {
     const fakeCommands = makeFakeCommands()
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     const template = { kind: 'LayerTap' as const, layer: 2, tap_kc: null }
     const code: KeyCode = { key: 'LT(2)', template }
     await client.setEncoderKeycode('dev1', { layer: 0, encoder: 1, clockwise: 1 }, code)
@@ -176,7 +204,7 @@ describe('RealXapClient mutations', () => {
     const fakeCommands = makeFakeCommands({
       encoderKeymapGet: vi.fn().mockResolvedValue({ status: 'ok', data: tensor }),
     })
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     const km = await client.getEncoderKeymap('dev1')
     expect(km).toHaveLength(1)          // 1 layer
     expect(km[0]).toHaveLength(2)       // 2 encoders
@@ -188,8 +216,135 @@ describe('RealXapClient mutations', () => {
     const fakeCommands = makeFakeCommands({
       keycodeTemplateEncode: vi.fn().mockResolvedValue({ status: 'error', error: 'bad template' }),
     })
-    const client = new RealXapClient(fakeCommands)
+    const client = new RealXapClient(fakeCommands, silentEvents)
     const code: KeyCode = { key: 'LT(0,KC_A)', template: { kind: 'LayerTap', layer: 0, tap_kc: 0x04 } }
     await expect(client.remapKey('dev1', { layer: 0, row: 0, column: 0 }, code)).rejects.toThrow('bad template')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 3: lifecycle methods + subscribe
+// ---------------------------------------------------------------------------
+
+describe('RealXapClient lifecycle', () => {
+  it('(a) secureLock calls xapSecureLock and returns void', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.secureLock('dev1')).resolves.toBeUndefined()
+    expect(fakeCommands.xapSecureLock).toHaveBeenCalledWith('dev1')
+  })
+
+  it('(a) secureLock throws when command returns error', async () => {
+    const fakeCommands = makeFakeCommands({
+      xapSecureLock: vi.fn().mockResolvedValue({ status: 'error', error: 'lock failed' }),
+    })
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.secureLock('dev1')).rejects.toThrow('lock failed')
+  })
+
+  it('(a) secureUnlock calls xapSecureUnlock and returns void', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.secureUnlock('dev1')).resolves.toBeUndefined()
+    expect(fakeCommands.xapSecureUnlock).toHaveBeenCalledWith('dev1')
+  })
+
+  it('(a) secureUnlock throws when command returns error', async () => {
+    const fakeCommands = makeFakeCommands({
+      xapSecureUnlock: vi.fn().mockResolvedValue({ status: 'error', error: 'unlock failed' }),
+    })
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.secureUnlock('dev1')).rejects.toThrow('unlock failed')
+  })
+
+  it('(a) jumpToBootloader calls qmkJumpToBootloader and returns void', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.jumpToBootloader('dev1')).resolves.toBeUndefined()
+    expect(fakeCommands.qmkJumpToBootloader).toHaveBeenCalledWith('dev1')
+  })
+
+  it('(a) jumpToBootloader throws when command returns error', async () => {
+    const fakeCommands = makeFakeCommands({
+      qmkJumpToBootloader: vi.fn().mockResolvedValue({ status: 'error', error: 'bootloader failed' }),
+    })
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.jumpToBootloader('dev1')).rejects.toThrow('bootloader failed')
+  })
+
+  it('(a) reinitializeEeprom calls qmkReinitializeEeprom and returns void', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.reinitializeEeprom('dev1')).resolves.toBeUndefined()
+    expect(fakeCommands.qmkReinitializeEeprom).toHaveBeenCalledWith('dev1')
+  })
+
+  it('(a) reinitializeEeprom throws when command returns error', async () => {
+    const fakeCommands = makeFakeCommands({
+      qmkReinitializeEeprom: vi.fn().mockResolvedValue({ status: 'error', error: 'eeprom failed' }),
+    })
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.reinitializeEeprom('dev1')).rejects.toThrow('eeprom failed')
+  })
+
+  it('(c) secureLock does NOT emit events to subscribers', async () => {
+    const fakeEvents = makeFakeEvents()
+    const client = new RealXapClient(makeFakeCommands(), fakeEvents)
+    const handler = vi.fn()
+    client.subscribe(handler)
+    await client.secureLock('dev1')
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('(c) secureUnlock does NOT emit events to subscribers', async () => {
+    const fakeEvents = makeFakeEvents()
+    const client = new RealXapClient(makeFakeCommands(), fakeEvents)
+    const handler = vi.fn()
+    client.subscribe(handler)
+    await client.secureUnlock('dev1')
+    expect(handler).not.toHaveBeenCalled()
+  })
+})
+
+describe('RealXapClient subscribe', () => {
+  it('(b) pushing a SecureStatusChanged event delivers it to the registered handler', () => {
+    const fakeEvents = makeFakeEvents()
+    const client = new RealXapClient(makeFakeCommands(), fakeEvents)
+    const handler = vi.fn()
+    client.subscribe(handler)
+    const event: XapEvent = { kind: 'SecureStatusChanged', data: { id: 'dev1', secure_status: 'Locked' } }
+    fakeEvents.push(event)
+    expect(handler).toHaveBeenCalledOnce()
+    expect(handler).toHaveBeenCalledWith(event)
+  })
+
+  it('(b) the returned Unsubscribe stops further event delivery', () => {
+    const fakeEvents = makeFakeEvents()
+    const client = new RealXapClient(makeFakeCommands(), fakeEvents)
+    const handler = vi.fn()
+    const unsub = client.subscribe(handler)
+    const event: XapEvent = { kind: 'SecureStatusChanged', data: { id: 'dev1', secure_status: 'Unlocked' } }
+    fakeEvents.push(event)
+    expect(handler).toHaveBeenCalledOnce()
+    unsub()
+    fakeEvents.push(event)
+    expect(handler).toHaveBeenCalledOnce() // still only once
+  })
+
+  it('(b) multiple handlers can subscribe independently', () => {
+    const fakeEvents = makeFakeEvents()
+    const client = new RealXapClient(makeFakeCommands(), fakeEvents)
+    const h1 = vi.fn()
+    const h2 = vi.fn()
+    client.subscribe(h1)
+    const unsub2 = client.subscribe(h2)
+    const event: XapEvent = { kind: 'NewDevice', data: { id: 'dev2' } }
+    fakeEvents.push(event)
+    expect(h1).toHaveBeenCalledOnce()
+    expect(h2).toHaveBeenCalledOnce()
+    unsub2()
+    fakeEvents.push(event)
+    expect(h1).toHaveBeenCalledTimes(2)
+    expect(h2).toHaveBeenCalledOnce() // unsubscribed
   })
 })

@@ -1,6 +1,6 @@
 import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from './client'
 import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode, KeycodeTemplate } from './types'
-import type { Result, RemappingSetKeycodeArg, RemappingSetEncoderKeycodeArg } from '@gen/xap-types'
+import type { Result, RemappingSetKeycodeArg, RemappingSetEncoderKeycodeArg, QmkJumpToBootloaderResponse, QmkReinitializeEepromResponse } from '@gen/xap-types'
 import { unwrap } from './result'
 
 // Structural interface covering only the commands used in this adapter.
@@ -13,10 +13,19 @@ export interface XapCommands {
   keycodeTemplateEncode(template: KeycodeTemplate): Promise<Result<number, string>>
   remappingSetEncoderKeycode(id: string, arg: RemappingSetEncoderKeycodeArg): Promise<Result<null, string>>
   encoderKeymapGet(id: string): Promise<Result<KeyCode[][][], string>>
+  xapSecureLock(id: string): Promise<Result<null, Error>>
+  xapSecureUnlock(id: string): Promise<Result<null, Error>>
+  qmkJumpToBootloader(id: string): Promise<Result<QmkJumpToBootloaderResponse, Error>>
+  qmkReinitializeEeprom(id: string): Promise<Result<QmkReinitializeEepromResponse, Error>>
+}
+
+// Injected event source — desktop adapter wraps Tauri listen; web adapter wraps wasm emit.
+export interface XapEventSource {
+  on(handler: (e: XapEvent) => void): Unsubscribe
 }
 
 export class RealXapClient implements XapClient {
-  constructor(private commands: XapCommands) {}
+  constructor(private commands: XapCommands, private events: XapEventSource) {}
 
   private async encodeKeyCode(code: KeyCode): Promise<number> {
     if (code.template) {
@@ -64,23 +73,23 @@ export class RealXapClient implements XapClient {
     unwrap(await this.commands.remappingSetEncoderKeycode(id, { ...target, keycode }))
   }
 
-  async secureLock(_id: string): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async secureLock(id: string): Promise<void> {
+    unwrap(await this.commands.xapSecureLock(id))
   }
 
-  async secureUnlock(_id: string): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async secureUnlock(id: string): Promise<void> {
+    unwrap(await this.commands.xapSecureUnlock(id))
   }
 
-  async jumpToBootloader(_id: string): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async jumpToBootloader(id: string): Promise<void> {
+    unwrap(await this.commands.qmkJumpToBootloader(id))
   }
 
-  async reinitializeEeprom(_id: string): Promise<void> {
-    throw new Error('not implemented (Task 2)')
+  async reinitializeEeprom(id: string): Promise<void> {
+    unwrap(await this.commands.qmkReinitializeEeprom(id))
   }
 
-  subscribe(_handler: (e: XapEvent) => void): Unsubscribe {
-    throw new Error('not implemented (Task 3)')
+  subscribe(handler: (e: XapEvent) => void): Unsubscribe {
+    return this.events.on(handler)
   }
 }
