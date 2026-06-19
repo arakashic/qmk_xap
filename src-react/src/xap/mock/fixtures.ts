@@ -48,8 +48,8 @@ const ENTRIES = {
 // Keycodes covering every legend kind
 // ---------------------------------------------------------------------------
 
-// 1. Basic key
-const KC_A: KeyCode = { code: 4, key: 'KC_A', label: 'A', group: 'Basic' }
+// 1. Basic key — no group so legendOf returns { kind: 'basic' } not prefix
+const KC_A: KeyCode = { code: 4, key: 'KC_A', label: 'A' }
 
 // 2. ModTap: hold=Left Ctrl, tap=S  (mod_mask=0x01 = MOD_LCTL)
 const MT_LCTL_S: KeyCode = {
