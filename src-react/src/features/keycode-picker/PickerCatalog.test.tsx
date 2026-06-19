@@ -18,10 +18,10 @@ describe('PickerCatalog', () => {
     )
     // basic tab has letters A-Z in the ANSI layout
     expect(screen.getAllByRole('button').length).toBeGreaterThan(10)
-    // Tab chips are rendered
-    expect(screen.getByText('Basic')).toBeInTheDocument()
-    expect(screen.getByText('Layer')).toBeInTheDocument()
-    expect(screen.getByText('Mod-Tap')).toBeInTheDocument()
+    // Tab chips are no longer rendered by PickerCatalog — owned by PickerDock
+    expect(screen.queryByText('Basic')).toBeNull()
+    expect(screen.queryByText('Layer')).toBeNull()
+    expect(screen.queryByText('Mod-Tap')).toBeNull()
   })
 
   it('layer tab expands MO(0)..MO(layerCount-1)', () => {

@@ -1,4 +1,6 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
 import { usePickerStore } from '@/store/picker'
 import { useConstants } from '@/queries/constants'
 import { canTabFill } from './templateFill'
@@ -10,19 +12,26 @@ interface PickerDockProps {
   layerCount: number
 }
 
-// Family color map for tab chips — mirrors PickerCatalog's tabChipStyle
-const FAMILY_TAB_STYLE: Record<string, CSSProperties> = {
+// Inactive family tint styles (light bg)
+const FAMILY_TAB_INACTIVE: Record<string, CSSProperties> = {
   '#93c5fd': { background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8' },
   '#c4b5fd': { background: '#f5f3ff', borderColor: '#c4b5fd', color: '#6d28d9' },
   '#67e8f9': { background: '#ecfeff', borderColor: '#67e8f9', color: '#0891b2' },
   '#fdba74': { background: '#fff7ed', borderColor: '#fdba74', color: '#c2410c' },
 }
 
+// Active family color (saturated dark)
 const FAMILY_TAB_ACTIVE: Record<string, CSSProperties> = {
   '#93c5fd': { background: '#1d4ed8', borderColor: '#1d4ed8', color: '#fff' },
   '#c4b5fd': { background: '#6d28d9', borderColor: '#6d28d9', color: '#fff' },
   '#67e8f9': { background: '#0891b2', borderColor: '#0891b2', color: '#fff' },
   '#fdba74': { background: '#c2410c', borderColor: '#c2410c', color: '#fff' },
+}
+
+const PRIMARY_ACTIVE: CSSProperties = {
+  background: 'hsl(var(--primary))',
+  borderColor: 'hsl(var(--primary))',
+  color: '#fff',
 }
 
 export function PickerDock({ layerCount }: PickerDockProps) {
@@ -35,13 +44,11 @@ export function PickerDock({ layerCount }: PickerDockProps) {
   const tabs = constants?.keycode_view?.tabs ?? []
   const expanded = dockOpen || dockPinned
 
-  const borderColor = pending
-    ? '#d69e2e'
-    : 'hsl(var(--border))'
+  const borderColor = pending ? '#d69e2e' : 'hsl(var(--border))'
 
   const handleCancelPending = () => setPending(null)
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape' && pending) {
       e.preventDefault()
       setPending(null)
@@ -124,74 +131,88 @@ export function PickerDock({ layerCount }: PickerDockProps) {
           </>
         )}
 
-        {/* Tab chips */}
-        {tabs.map((t) => {
-          const isActive = t.id === activeTab
-          const isDim = pending && !canTabFill(pending, t.id)
-          const familyStyle = t.color ? FAMILY_TAB_STYLE[t.color] : null
-          const activeStyle = t.color
-            ? (FAMILY_TAB_ACTIVE[t.color] ?? { background: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary))', color: '#fff' })
-            : { background: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary))', color: '#fff' }
-
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
+        {/* Shadcn Tabs for the tab strip — controlled */}
+        {tabs.length > 0 && (
+          <Tabs value={activeTab} onValueChange={setTab}>
+            <TabsList
               style={{
-                padding: '4px 10px',
-                fontSize: 10,
-                borderRadius: 9999,
-                border: '1px solid',
-                cursor: 'pointer',
-                fontWeight: 500,
-                opacity: isDim ? 0.4 : 1,
-                transition: 'opacity 0.15s',
-                ...(isActive
-                  ? activeStyle
-                  : familyStyle
-                    ? familyStyle
-                    : {
-                        background: 'hsl(var(--background))',
-                        borderColor: 'hsl(var(--border))',
-                        color: 'hsl(var(--muted-foreground))',
-                      }),
+                background: 'transparent',
+                height: 'auto',
+                padding: 0,
+                gap: 4,
+                display: 'flex',
+                flexWrap: 'wrap',
               }}
             >
-              {t.label}
-            </button>
-          )
-        })}
+              {tabs.map((t) => {
+                const isActive = t.id === activeTab
+                const isDim = pending != null && !canTabFill(pending, t.id)
+                const inactiveStyle = t.color
+                  ? (FAMILY_TAB_INACTIVE[t.color] ?? {
+                      background: 'hsl(var(--background))',
+                      borderColor: 'hsl(var(--border))',
+                      color: 'hsl(var(--muted-foreground))',
+                    })
+                  : {
+                      background: 'hsl(var(--background))',
+                      borderColor: 'hsl(var(--border))',
+                      color: 'hsl(var(--muted-foreground))',
+                    }
+                const activeStyle = t.color
+                  ? (FAMILY_TAB_ACTIVE[t.color] ?? PRIMARY_ACTIVE)
+                  : PRIMARY_ACTIVE
 
-        {/* Search input */}
+                return (
+                  <TabsTrigger
+                    key={t.id}
+                    value={t.id}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: 10,
+                      borderRadius: 9999,
+                      border: '1px solid',
+                      fontWeight: 500,
+                      opacity: isDim ? 0.4 : 1,
+                      transition: 'opacity 0.15s',
+                      // Reset shadcn default active styles; we use inline styles
+                      boxShadow: 'none',
+                      ...(isActive ? activeStyle : inactiveStyle),
+                    }}
+                  >
+                    {t.label}
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+          </Tabs>
+        )}
+
+        {/* Search input + pin */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 26,
-              border: '1px solid hsl(var(--input))',
-              borderRadius: 'calc(var(--radius) - 2px)',
-              background: 'hsl(var(--background))',
-              padding: '0 8px',
-              fontSize: 10,
-              boxShadow: '0 1px 2px rgb(0 0 0 / .04)',
-            }}
-          >
-            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10 }}>&#128269;</span>
-            <input
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span
+              style={{
+                position: 'absolute',
+                left: 8,
+                color: 'hsl(var(--muted-foreground))',
+                fontSize: 10,
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            >
+              &#128269;
+            </span>
+            <Input
               type="text"
               placeholder={pending ? 'search basic keys' : 'search keycodes'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
+                height: 26,
+                paddingLeft: 24,
+                paddingRight: 8,
                 fontSize: 10,
-                color: 'hsl(var(--foreground))',
-                width: 100,
+                width: 130,
               }}
             />
           </div>
@@ -238,7 +259,6 @@ export function PickerDock({ layerCount }: PickerDockProps) {
               query={query}
               onPick={onPick}
               onHover={setHovered}
-              hideTabs
             />
             <DetailsStrip hovered={hovered} />
           </div>
