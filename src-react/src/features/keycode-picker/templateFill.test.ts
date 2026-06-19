@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { startFill, canTabFill, completeFill } from './templateFill'
+import { startFill, canTabFill, completeFill, shouldComplete } from './templateFill'
 
 describe('templateFill', () => {
   it('startFill on LT opens a tap hole', () => {
@@ -27,6 +27,25 @@ describe('templateFill', () => {
     const p = startFill({ layer: 0, row: 0, column: 0 }, { kind: 'LM' }, { layer: 1 })!
     expect(p.hole).toBe('mod')
     expect(canTabFill(p, 'modgrid')).toBe(true)
+  })
+
+  it('shouldComplete: LT pending + basic tab → true', () => {
+    const p = startFill({ layer: 0, row: 0, column: 0 }, { kind: 'LT' }, { layer: 1 })!
+    expect(shouldComplete(p, 'basic')).toBe(true)
+  })
+
+  it('shouldComplete: MT pending + basic tab → true', () => {
+    const p = startFill({ layer: 0, row: 0, column: 0 }, { kind: 'MT', mods: [] }, { mod_mask: 2 })!
+    expect(shouldComplete(p, 'basic')).toBe(true)
+  })
+
+  it('shouldComplete: LM pending + basic tab → false (mod hole, not fillable from basic)', () => {
+    const p = startFill({ layer: 0, row: 0, column: 0 }, { kind: 'LM' }, { layer: 1 })!
+    expect(shouldComplete(p, 'basic')).toBe(false)
+  })
+
+  it('shouldComplete: null pending → false', () => {
+    expect(shouldComplete(null, 'basic')).toBe(false)
   })
 
   it('startFill on non-parameterized kind returns null', () => {

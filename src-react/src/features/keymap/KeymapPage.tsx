@@ -3,7 +3,7 @@ import { useUiStore } from '@/store/ui'
 import { usePickerStore } from '@/store/picker'
 import { useMappedKeymap } from '@/queries/devices'
 import { useRemapKey } from '@/queries/keymap'
-import { startFill, completeFill } from '@/features/keycode-picker/templateFill'
+import { startFill, completeFill, shouldComplete } from '@/features/keycode-picker/templateFill'
 import type { FillTarget } from '@/features/keycode-picker/templateFill'
 import { PickerDock } from '@/features/keycode-picker/PickerDock'
 import type { KeyCode } from '@/xap/types'
@@ -70,12 +70,14 @@ export function KeymapPage() {
         return
       }
 
-      // If we have a pending fill and the user picked a basic key (the tap hole),
-      // complete the fill and write once.
+      // If we have a pending fill and the active tab can fill the current hole,
+      // complete the fill and write once. Otherwise ignore the pick (no write).
       if (picker.pending) {
-        const finalCode = completeFill(picker.pending, code)
-        remapKey.mutate({ target: picker.pending.target, code: finalCode })
-        picker.setPending(null)
+        if (shouldComplete(picker.pending, picker.activeTab)) {
+          const finalCode = completeFill(picker.pending, code)
+          remapKey.mutate({ target: picker.pending.target, code: finalCode })
+          picker.setPending(null)
+        }
         return
       }
 

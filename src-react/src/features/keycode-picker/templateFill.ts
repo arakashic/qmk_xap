@@ -34,6 +34,11 @@ export function canTabFill(p: PendingFill, tabId: string): boolean {
   return false
 }
 
+/** True only when the active tab can fill the current hole of the pending fill. */
+export function shouldComplete(pending: PendingFill | null, activeTab: string): boolean {
+  return !!pending && canTabFill(pending, activeTab)
+}
+
 /** Assemble the final KeyCode from the pending fill + the chosen key/mod. */
 export function completeFill(p: PendingFill, chosen: KeyCode): KeyCode {
   if (p.kind === 'LT') {
