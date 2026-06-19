@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { DevtoolsSink } from '../xap/instrument'
 
 export type EntryKind = 'call' | 'secure' | 'log' | 'broadcast' | 'device'
 
@@ -66,3 +67,10 @@ export const useDevtoolsStore = create<DevtoolsState>((set, get) => ({
         : [...s.hidden, kind],
     })),
 }))
+
+// Shared sink adapter for instrumentClient — use this in main.tsx and tests.
+export const devtoolsSink: DevtoolsSink = {
+  pushCall: (label) => useDevtoolsStore.getState().pushCall(label),
+  resolveCall: (id, status, latencyMs) =>
+    useDevtoolsStore.getState().resolveCall(id, status, latencyMs),
+}

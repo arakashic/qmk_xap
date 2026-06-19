@@ -1,16 +1,9 @@
 import { useRef, useEffect } from 'react'
 import { useDevtoolsStore, type EntryKind } from '../../store/devtools'
 import { TimelineRow } from './TimelineRow'
+import { KIND_COLOR } from './kindColor'
 
 const ALL_KINDS: EntryKind[] = ['call', 'secure', 'log', 'broadcast', 'device']
-
-const KIND_COLOR: Record<EntryKind, string> = {
-  call: '#63b3ed',
-  secure: '#fbd38d',
-  log: '#9ae6b4',
-  broadcast: '#b794f4',
-  device: '#fc8181',
-}
 
 export function DevtoolsDock() {
   const { entries, dockOpen, paused, hidden, setDockOpen, togglePause, clear, toggleKind } =

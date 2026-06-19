@@ -1,12 +1,5 @@
-import type { TimelineEntry, EntryKind } from '../../store/devtools'
-
-const KIND_COLOR: Record<EntryKind, string> = {
-  call: '#63b3ed',       // blue
-  secure: '#fbd38d',     // amber
-  log: '#9ae6b4',        // green
-  broadcast: '#b794f4',  // purple
-  device: '#fc8181',     // red
-}
+import type { TimelineEntry } from '../../store/devtools'
+import { KIND_COLOR } from './kindColor'
 
 function formatTs(ts: number): string {
   const d = new Date(ts)

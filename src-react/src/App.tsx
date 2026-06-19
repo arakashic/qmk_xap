@@ -3,9 +3,11 @@ import { Rail } from '@/shell/Rail'
 import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
 import { DevtoolsDock } from '@/features/devtools/DevtoolsDock'
+import { useDevtoolsSubscription } from '@/features/devtools/useDevtoolsSubscription'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
 import { useUiStore } from '@/store/ui'
+import { useDevtoolsStore } from '@/store/devtools'
 import { useDevices } from '@/queries/devices'
 
 export default function App() {
@@ -14,6 +16,9 @@ export default function App() {
   const setActiveDevice = useUiStore((s) => s.setActiveDevice)
   const route = useUiStore((s) => s.route)
   const setRoute = useUiStore((s) => s.setRoute)
+  const dockOpen = useDevtoolsStore((s) => s.dockOpen)
+
+  useDevtoolsSubscription()
 
   // Default to first device on mount
   useEffect(() => {
@@ -64,7 +69,7 @@ export default function App() {
           </div>
         )}
         {route === 'devices' && <DevicesPage />}
-        <DevtoolsDock />
+        {showChrome && dockOpen && <DevtoolsDock />}
         {showChrome && <DevtoolsStrip />}
       </div>
     </div>
