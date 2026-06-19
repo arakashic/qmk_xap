@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Rail } from '@/shell/Rail'
 import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
+import { DevtoolsDock } from '@/features/devtools/DevtoolsDock'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
 import { useUiStore } from '@/store/ui'
@@ -44,6 +45,7 @@ export default function App() {
           flexDirection: 'column',
           minWidth: 0,
           overflow: 'hidden',
+          position: 'relative',
         }}
       >
         {showChrome && <TopBar device={activeDevice} />}
@@ -62,6 +64,7 @@ export default function App() {
           </div>
         )}
         {route === 'devices' && <DevicesPage />}
+        <DevtoolsDock />
         {showChrome && <DevtoolsStrip />}
       </div>
     </div>
