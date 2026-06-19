@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { legendOf } from './legend'
+import { legendOf, modName } from './legend'
 
 describe('legendOf', () => {
   it('KC_TRNS -> trns', () => expect(legendOf({ key: 'KC_TRNS' }).kind).toBe('trns'))
@@ -17,4 +17,51 @@ describe('legendOf', () => {
   it('modified corner', () =>
     expect(legendOf({ key: 'S(KC_1)', label: '!', template: { kind: 'Modified', mod_mask: 2, base_kc: 30 } }))
       .toMatchObject({ kind: 'modified', output: '!' }))
+
+  // --- new branches ---
+
+  it('ModTap: kind=split, family=modtap, readable hold', () => {
+    const result = legendOf({
+      key: 'MT(MOD_LCTL,KC_S)',
+      label: 'S',
+      template: { kind: 'ModTap', mod_mask: 0x01, tap_kc: 0x16 },
+    })
+    expect(result).toMatchObject({ kind: 'split', family: 'modtap', tap: 'S' })
+    if (result.kind === 'split') {
+      expect(result.hold).toBe('Ctrl')
+      expect(result.hold).not.toMatch(/^0x/)
+    }
+  })
+
+  it('OneShotMod: kind=descriptor, family=modtap, readable payload', () => {
+    const result = legendOf({
+      key: 'OSM(MOD_LSFT)',
+      template: { kind: 'OneShotMod', mod_mask: 0x02 },
+    })
+    expect(result).toMatchObject({ kind: 'descriptor', family: 'modtap', verb: 'one-shot' })
+    if (result.kind === 'descriptor') {
+      expect(result.payload).toBe('Sft')
+      expect(result.payload).not.toMatch(/^0x/)
+    }
+  })
+
+  it('LayerMod: kind=descriptor, family=layermod', () => {
+    const result = legendOf({
+      key: 'LM(1,MOD_LSFT)',
+      template: { kind: 'LayerMod', layer: 1, mod_mask: 0x02 },
+    })
+    expect(result).toMatchObject({ kind: 'descriptor', family: 'layermod', verb: 'layer+mod', payload: 'L1' })
+  })
+})
+
+describe('modName', () => {
+  it('0x01 -> Ctrl', () => expect(modName(0x01)).toBe('Ctrl'))
+  it('0x02 -> Sft', () => expect(modName(0x02)).toBe('Sft'))
+  it('0x04 -> Alt', () => expect(modName(0x04)).toBe('Alt'))
+  it('0x08 -> GUI', () => expect(modName(0x08)).toBe('GUI'))
+  it('0x07 -> Meh', () => expect(modName(0x07)).toBe('Meh'))
+  it('0x0F -> Hyper', () => expect(modName(0x0f)).toBe('Hyper'))
+  it('0x10 -> RCtrl', () => expect(modName(0x10)).toBe('RCtrl'))
+  it('right Meh 0x70 -> Meh', () => expect(modName(0x70)).toBe('Meh'))
+  it('right Hyper 0xF0 -> Hyper', () => expect(modName(0xf0)).toBe('Hyper'))
 })

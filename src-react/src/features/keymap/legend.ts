@@ -22,6 +22,47 @@ const LAYER_OP_VERB: Record<string, string> = {
   PDF: 'default ✎',
 }
 
+// QMK mod bitmask: bits 0-3 = L{Ctrl,Sft,Alt,GUI}, bits 4-7 = R{Ctrl,Sft,Alt,GUI}
+// Meh  = Ctrl+Sft+Alt (0x07 or 0x70)
+// Hyper = Ctrl+Sft+Alt+GUI (0x0F or 0xF0)
+export function modName(mod_mask: number): string {
+  const l = mod_mask & 0x0f
+  const r = mod_mask & 0xf0
+
+  // Combine left and right halves, right mods get an "R" prefix on individual bits
+  const active = l | (r >> 4)
+
+  // Named combos (check before individual bits)
+  if (active === 0x0f) return 'Hyper'
+  if (active === 0x07) return 'Meh'
+
+  const names: string[] = []
+  if (active & 0x01) names.push(r & 0x10 ? 'RCtrl' : 'Ctrl')
+  if (active & 0x02) names.push(r & 0x20 ? 'RSft' : 'Sft')
+  if (active & 0x04) names.push(r & 0x40 ? 'RAlt' : 'Alt')
+  if (active & 0x08) names.push(r & 0x80 ? 'RGUI' : 'GUI')
+
+  return names.length > 0 ? names.join('+') : `0x${mod_mask.toString(16).toUpperCase()}`
+}
+
+// Short form for OSM payload labels (matches design §2.5 OSM caps)
+function modNameShort(mod_mask: number): string {
+  const l = mod_mask & 0x0f
+  const r = mod_mask & 0xf0
+  const active = l | (r >> 4)
+
+  if (active === 0x0f) return 'Hyper'
+  if (active === 0x07) return 'Meh'
+
+  const names: string[] = []
+  if (active & 0x01) names.push('Ctl')
+  if (active & 0x02) names.push('Sft')
+  if (active & 0x04) names.push('Alt')
+  if (active & 0x08) names.push('GUI')
+
+  return names.length > 0 ? names.join('+') : `0x${mod_mask.toString(16).toUpperCase()}`
+}
+
 export function legendOf(code: KeyCode): LegendModel {
   // Special transparent / no-op keys
   if (code.key === 'KC_TRNS') return { kind: 'trns' }
@@ -43,7 +84,7 @@ export function legendOf(code: KeyCode): LegendModel {
         return {
           kind: 'split',
           family: 'modtap',
-          hold: `0x${tmpl.mod_mask.toString(16).toUpperCase()}`,
+          hold: modName(tmpl.mod_mask),
           tap: code.label ?? String(tmpl.tap_kc ?? '?'),
         }
       case 'LayerOp': {
@@ -55,7 +96,7 @@ export function legendOf(code: KeyCode): LegendModel {
           kind: 'descriptor',
           family: 'modtap',
           verb: 'one-shot',
-          payload: `0x${tmpl.mod_mask.toString(16).toUpperCase()}`,
+          payload: modNameShort(tmpl.mod_mask),
         }
       case 'LayerMod':
         return {
@@ -66,7 +107,10 @@ export function legendOf(code: KeyCode): LegendModel {
         }
       case 'Modified': {
         const output = code.label ?? code.key
-        return { kind: 'modified', output, corner: `0x${tmpl.mod_mask.toString(16).toUpperCase()}` }
+        // Derive a readable corner from code.key (e.g. "S(KC_1)" -> "S(1)")
+        // or fall back to modName if key string isn't parseable
+        const corner = code.key.replace(/^(\w+)\(KC_(.+)\)$/, '$1($2)')
+        return { kind: 'modified', output, corner }
       }
     }
   }
@@ -79,9 +123,9 @@ export function legendOf(code: KeyCode): LegendModel {
 
   // Basic key with a label
   if (code.label) {
-    const result: LegendModel = { kind: 'basic', label: code.label }
-    if (code.top) return { ...result, top: code.top }
-    return result
+    return code.top
+      ? { kind: 'basic', label: code.label, top: code.top }
+      : { kind: 'basic', label: code.label }
   }
 
   // Fallback: hex
