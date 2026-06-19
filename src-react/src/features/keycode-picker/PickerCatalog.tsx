@@ -140,6 +140,8 @@ interface PickerCatalogProps {
   onHover: (code: KeyCode | null) => void
   /** Tab id that should appear dimmed (e.g. while a two-step fill is in progress) */
   dimTab?: string
+  /** When true, suppresses the tab chip row (caller owns tab switching UI) */
+  hideTabs?: boolean
 }
 
 export function PickerCatalog({
@@ -150,41 +152,44 @@ export function PickerCatalog({
   onPick,
   onHover,
   dimTab,
+  hideTabs,
 }: PickerCatalogProps) {
   const tab = tabs.find((t) => t.id === activeTab) ?? tabs[0]
   if (!tab) return null
 
   return (
     <div>
-      {/* Tab chips */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
-        {tabs.map((t) => {
-          const isActive = t.id === activeTab
-          const isDim = dimTab && t.id !== activeTab && t.id === dimTab
-          const chipStyle = tabChipStyle(t.color)
-          return (
-            <span
-              key={t.id}
-              style={{
-                padding: '3px 9px',
-                fontSize: 10,
-                borderRadius: 9999,
-                border: '1px solid',
-                opacity: isDim ? 0.4 : 1,
-                cursor: 'default',
-                fontWeight: 500,
-                ...(isActive
-                  ? activeTabChipStyle(t.color ?? null)
-                  : t.color
-                    ? chipStyle
-                    : { background: '#fff', borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }),
-              }}
-            >
-              {t.label}
-            </span>
-          )
-        })}
-      </div>
+      {/* Tab chips — suppressed when caller (PickerDock) owns the tab bar */}
+      {!hideTabs && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+          {tabs.map((t) => {
+            const isActive = t.id === activeTab
+            const isDim = dimTab && t.id !== activeTab && t.id === dimTab
+            const chipStyle = tabChipStyle(t.color)
+            return (
+              <span
+                key={t.id}
+                style={{
+                  padding: '3px 9px',
+                  fontSize: 10,
+                  borderRadius: 9999,
+                  border: '1px solid',
+                  opacity: isDim ? 0.4 : 1,
+                  cursor: 'default',
+                  fontWeight: 500,
+                  ...(isActive
+                    ? activeTabChipStyle(t.color ?? null)
+                    : t.color
+                      ? chipStyle
+                      : { background: '#fff', borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }),
+                }}
+              >
+                {t.label}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {/* Subgroups */}
       {tab.subgroups.map((sg) => {
