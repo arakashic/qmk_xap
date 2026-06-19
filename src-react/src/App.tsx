@@ -3,6 +3,7 @@ import { Rail } from '@/shell/Rail'
 import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
+import { DevicesPage } from '@/features/devices/DevicesPage'
 import { useUiStore } from '@/store/ui'
 import { useDevices } from '@/queries/devices'
 
@@ -10,6 +11,8 @@ export default function App() {
   const { data: devices } = useDevices()
   const activeDeviceId = useUiStore((s) => s.activeDeviceId)
   const setActiveDevice = useUiStore((s) => s.setActiveDevice)
+  const route = useUiStore((s) => s.route)
+  const setRoute = useUiStore((s) => s.setRoute)
 
   // Default to first device on mount
   useEffect(() => {
@@ -19,6 +22,8 @@ export default function App() {
   }, [devices, activeDeviceId, setActiveDevice])
 
   const activeDevice = devices?.find((d) => d.id === activeDeviceId) ?? null
+
+  const isDeviceRoute = route !== 'devices'
 
   return (
     <div
@@ -31,7 +36,7 @@ export default function App() {
         fontSize: 12,
       }}
     >
-      <Rail active="keymap" />
+      <Rail active={route} onNavigate={setRoute} />
       <div
         style={{
           flex: 1,
@@ -41,9 +46,23 @@ export default function App() {
           overflow: 'hidden',
         }}
       >
-        <TopBar device={activeDevice} />
-        <KeymapPage />
-        <DevtoolsStrip />
+        {isDeviceRoute && <TopBar device={activeDevice} />}
+        {route === 'keymap' && <KeymapPage />}
+        {route === 'lighting' && (
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'hsl(var(--muted-foreground))',
+            }}
+          >
+            Lighting — coming soon
+          </div>
+        )}
+        {route === 'devices' && <DevicesPage />}
+        {isDeviceRoute && <DevtoolsStrip />}
       </div>
     </div>
   )

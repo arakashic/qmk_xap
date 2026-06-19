@@ -1,13 +1,13 @@
 // Nav rail: dark --rail background, icon+label items, active=blue
 
-type Section = 'keymap' | 'lighting' | 'devices'
+import type { Route } from '@/store/ui'
 
 interface RailProps {
-  active: Section
-  onNavigate?: (s: Section) => void
+  active: Route
+  onNavigate?: (s: Route) => void
 }
 
-const ITEMS: { id: Section; icon: string; label: string }[] = [
+const ITEMS: { id: Route; icon: string; label: string }[] = [
   { id: 'keymap',   icon: '⌨',  label: 'Keymap'  },
   { id: 'lighting', icon: '🌈', label: 'Light'   },
   { id: 'devices',  icon: '🖥', label: 'Devices' },
