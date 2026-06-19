@@ -1,20 +1,22 @@
-import type { XapClient, DeviceSummary, Unsubscribe } from '../client'
+import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from '../client'
 import type { XapDeviceState, MappedKeymap, XapEvent, XapConstants, KeyCode } from '../types'
 import { ugoState, ugoKeymap } from './fixtures'
 import { ugoConstants } from './constants'
+import { ugoEncoders } from './encoders'
 
-type Entry = { state: XapDeviceState; keymap: MappedKeymap }
+type Entry = { state: XapDeviceState; keymap: MappedKeymap; encoders: EncoderKeymap }
 
 export class MockXapClient implements XapClient {
   private devices: Map<string, Entry>
 
   constructor() {
-    // Deep-clone the keymap so mutations (remapKey) don't affect the shared fixture.
+    // Deep-clone fixtures so mutations don't affect shared fixture objects.
     const keymap: MappedKeymap = JSON.parse(
       JSON.stringify(ugoKeymap, (_k, v) => (typeof v === 'bigint' ? `__bigint__${v}` : v)),
       (_k, v) => (typeof v === 'string' && v.startsWith('__bigint__') ? BigInt(v.slice(10)) : v),
     )
-    this.devices = new Map([[ugoState.id, { state: ugoState, keymap }]])
+    const encoders: EncoderKeymap = JSON.parse(JSON.stringify(ugoEncoders))
+    this.devices = new Map([[ugoState.id, { state: ugoState, keymap, encoders }]])
   }
 
   async listDevices(): Promise<DeviceSummary[]> {
@@ -60,6 +62,24 @@ export class MockXapClient implements XapClient {
       }
     }
     throw new Error(`key at layer=${target.layer} row=${target.row} col=${target.column} not found`)
+  }
+
+  async getEncoderKeymap(id: string): Promise<EncoderKeymap> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    return e.encoders
+  }
+
+  async setEncoderKeycode(
+    id: string,
+    target: { layer: number; encoder: number; clockwise: number },
+    code: KeyCode,
+  ): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    const slot = e.encoders[target.layer]?.[target.encoder]
+    if (!slot) throw new Error(`encoder ${target.encoder} layer ${target.layer} not found`)
+    slot[target.clockwise ? 'cw' : 'ccw'] = code
   }
 
   subscribe(_h: (e: XapEvent) => void): Unsubscribe {
