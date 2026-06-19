@@ -1,0 +1,19 @@
+:root {
+  --background: 0 0% 100%; --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%; --card-foreground: 240 10% 3.9%;
+  --primary: 209 62% 50%; --primary-foreground: 0 0% 100%;   /* mockup blue #3182ce */
+  --secondary: 240 4.8% 95.9%; --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%; --muted-foreground: 240 3.8% 46.1%;
+  --destructive: 0 72.2% 50.6%; --destructive-foreground: 0 0% 100%;
+  --border: 240 5.9% 90%; --input: 240 5.9% 90%; --ring: 209 62% 50%;
+  --radius: 0.5rem;
+  /* nav rail + devtools strip (dark slate, kept from mockup) */
+  --rail: #2d3748; --rail-fg: #cbd5e0; --strip: #1a202c; --strip-fg: #718096; --strip-accent: #9ae6b4;
+  /* key geometry */
+  --key-radius: 4px; --cap-radius: 6px;
+  /* family tints (key/cap bg + border) */
+  --fam-layer-bg: #eff6ff; --fam-layer-bd: #93c5fd; --fam-layer-fg: #3b82f6;
+  --fam-modtap-bg: #f5f3ff; --fam-modtap-bd: #c4b5fd; --fam-modtap-fg: #6d28d9;
+  --fam-layermod-bg: #ecfeff; --fam-layermod-bd: #67e8f9; --fam-layermod-fg: #0891b2;
+  --fam-modified-bg: #fff7ed; --fam-modified-bd: #fdba74;
+}

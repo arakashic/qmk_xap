@@ -13,6 +13,8 @@ dist-ssr
 *.local
 .yarn
 target
+# shadcn CLI created a spurious Next.js scaffold; ignore it
+src-react/next-app/
 
 # Tauri generates a per-OS ACL schema under gen/schemas at build time. Upstream
 # tracks the linux/desktop variants; macOS builds additionally emit this one, so

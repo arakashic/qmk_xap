@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   root: path.resolve(__dirname),
   plugins: [react()],
+  css: {
+    // Explicitly point to src-react's own postcss config so the root
+    // postcss.config.js (Vue stack) is not picked up.
+    postcss: path.resolve(__dirname, 'postcss.config.cjs'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
