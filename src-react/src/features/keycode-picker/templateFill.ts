@@ -1,9 +1,14 @@
 import type { KeyCode, SubgroupTemplate } from '@gen/xap-types'
 
+export type KeyTarget = { kind: 'key'; layer: number; row: number; column: number }
+export type EncoderTarget = { kind: 'encoder'; layer: number; encoder: number; clockwise: number }
+export type PickerTarget = KeyTarget | EncoderTarget
+
+/** @deprecated Use PickerTarget instead */
 export type FillTarget = { layer: number; row: number; column: number }
 
 export type PendingFill = {
-  target: FillTarget
+  target: PickerTarget
   kind: 'LT' | 'MT' | 'LM'
   fixed: { layer?: number; mod_mask?: number }
   hole: 'tap' | 'mod'
@@ -11,7 +16,7 @@ export type PendingFill = {
 
 /** Start a two-step fill. Returns null for one-step templates (MO, TG, etc.). */
 export function startFill(
-  target: FillTarget,
+  target: PickerTarget,
   t: SubgroupTemplate,
   fixedChoice: { layer?: number; mod_mask?: number },
 ): PendingFill | null {

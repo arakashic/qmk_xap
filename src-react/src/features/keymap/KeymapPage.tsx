@@ -3,8 +3,9 @@ import { useUiStore } from '@/store/ui'
 import { usePickerStore } from '@/store/picker'
 import { useMappedKeymap } from '@/queries/devices'
 import { useRemapKey } from '@/queries/keymap'
+import { useSetEncoderKeycode } from '@/queries/encoders'
 import { startFill, completeFill, shouldComplete } from '@/features/keycode-picker/templateFill'
-import type { FillTarget } from '@/features/keycode-picker/templateFill'
+import type { PickerTarget } from '@/features/keycode-picker/templateFill'
 import { PickerDock } from '@/features/keycode-picker/PickerDock'
 import type { KeyCode } from '@/xap/types'
 import { Board } from './Board'
@@ -17,6 +18,7 @@ export function KeymapPage() {
 
   const picker = usePickerStore()
   const remapKey = useRemapKey(activeDeviceId ?? '')
+  const setEnc = useSetEncoderKeycode(activeDeviceId ?? '')
 
   // Document-level Esc: cancel pending fill while pending is set.
   useEffect(() => {
@@ -34,10 +36,22 @@ export function KeymapPage() {
   // Handle board key click: open picker for this target, cancel any pending fill.
   // picker.open() already clears pending, so no explicit setPending(null) needed.
   const handleSelectKey = useCallback(
-    (target: FillTarget) => {
+    (target: PickerTarget) => {
       picker.open(target)
     },
     [picker],
+  )
+
+  // Route a write to the correct mutation based on target kind.
+  const writeTarget = useCallback(
+    (target: PickerTarget, code: KeyCode) => {
+      if (target.kind === 'key') {
+        remapKey.mutate({ target, code })
+      } else {
+        setEnc.mutate({ target, code })
+      }
+    },
+    [remapKey, setEnc],
   )
 
   // Handle a pick from the picker catalog.
@@ -85,16 +99,16 @@ export function KeymapPage() {
       if (picker.pending) {
         if (shouldComplete(picker.pending, picker.activeTab)) {
           const finalCode = completeFill(picker.pending, code)
-          remapKey.mutate({ target: picker.pending.target, code: finalCode })
+          writeTarget(picker.pending.target, finalCode)
           picker.setPending(null)
         }
         return
       }
 
       // Basic / one-step code → write immediately, keep dock open.
-      remapKey.mutate({ target, code })
+      writeTarget(target, code)
     },
-    [picker, activeDeviceId, remapKey],
+    [picker, activeDeviceId, writeTarget],
   )
 
   if (!activeDeviceId) {

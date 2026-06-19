@@ -121,7 +121,7 @@ describe('KeymapPage flow integration', () => {
     // Exactly one write: target matches KC_A fixture position
     await waitFor(() => expect(remapSpy).toHaveBeenCalledTimes(1))
     const [, target, code] = remapSpy.mock.calls[0]
-    expect(target).toEqual({ layer: 0, row: 3, column: 3 })
+    expect(target).toEqual({ kind: 'key', layer: 0, row: 3, column: 3 })
     expect(code.key).toBe('KC_A')
 
     // No pending fill after a basic one-step pick
@@ -204,7 +204,7 @@ describe('KeymapPage flow integration', () => {
     // Exactly one write with assembled MT code
     await waitFor(() => expect(remapSpy).toHaveBeenCalledTimes(1))
     const [, target, code] = remapSpy.mock.calls[0]
-    expect(target).toEqual({ layer: 0, row: 3, column: 3 })
+    expect(target).toEqual({ kind: 'key', layer: 0, row: 3, column: 3 })
     expect(code.key).toMatch(/MT\(/)
     expect(code.template?.kind).toBe('ModTap')
     expect((code.template as { kind: string; mod_mask: number }).mod_mask).toBe(0x01)
@@ -253,7 +253,7 @@ describe('KeymapPage flow integration', () => {
     // Pending cleared by picker.open() (which is called for the new target)
     expect(usePickerStore.getState().pending).toBeNull()
     // New target is set (the MO key's position)
-    expect(usePickerStore.getState().target).toEqual({ layer: 0, row: 5, column: 0 })
+    expect(usePickerStore.getState().target).toEqual({ kind: 'key', layer: 0, row: 5, column: 0 })
   })
 
   it('Esc key on document cancels pending fill without a write', async () => {
@@ -287,5 +287,44 @@ describe('KeymapPage flow integration', () => {
     // Pending cleared, no write
     expect(usePickerStore.getState().pending).toBeNull()
     expect(remapSpy).not.toHaveBeenCalled()
+  })
+
+  it('encoder target basic pick: writes via setEncoderKeycode, not remapKey', async () => {
+    const client = new MockXapClient()
+    const remapSpy = vi.spyOn(client, 'remapKey')
+    const setEncSpy = vi.spyOn(client, 'setEncoderKeycode')
+    const qc = makeQc()
+
+    useUiStore.setState({ activeDeviceId: DEVICE_ID, selectedLayer: 0 })
+    render(<Wrapper client={client} qc={qc} />)
+
+    // Wait for the board to render so the component is mounted
+    await waitForBoard()
+
+    // Set the picker store target directly to an encoder target (EncoderRail not yet mounted)
+    act(() =>
+      usePickerStore.getState().open({
+        kind: 'encoder',
+        layer: 0,
+        encoder: 0,
+        clockwise: 1,
+      }),
+    )
+
+    // Wait for picker catalog to load
+    await waitForPickerBasicKeys()
+
+    // Pick 'A' from the basic catalog
+    const pickerA = await waitForPickerButton('A')
+    fireEvent.click(pickerA)
+
+    // setEncoderKeycode called once; remapKey not called
+    await waitFor(() => expect(setEncSpy).toHaveBeenCalledTimes(1))
+    expect(remapSpy).not.toHaveBeenCalled()
+
+    // The write targeted the correct encoder slot
+    const [, encTarget, code] = setEncSpy.mock.calls[0]
+    expect(encTarget).toEqual({ kind: 'encoder', layer: 0, encoder: 0, clockwise: 1 })
+    expect(code.key).toBe('KC_A')
   })
 })

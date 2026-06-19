@@ -1,16 +1,16 @@
 import { create } from 'zustand'
 import type { KeyCode } from '@/xap/types'
-import type { FillTarget, PendingFill } from '@/features/keycode-picker/templateFill'
+import type { PickerTarget, PendingFill } from '@/features/keycode-picker/templateFill'
 
 interface PickerState {
   dockOpen: boolean
   dockPinned: boolean
-  target: FillTarget | null
+  target: PickerTarget | null
   pending: PendingFill | null
   hovered: KeyCode | null
   activeTab: string
   query: string
-  open(target: FillTarget): void
+  open(target: PickerTarget): void
   close(): void
   togglePin(): void
   setTab(id: string): void

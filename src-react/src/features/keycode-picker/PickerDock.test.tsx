@@ -29,7 +29,7 @@ describe('DetailsStrip', () => {
 
 describe('BuilderChip', () => {
   const ltPending: PendingFill = {
-    target: { layer: 0, row: 0, column: 0 },
+    target: { kind: 'key', layer: 0, row: 0, column: 0 },
     kind: 'LT',
     fixed: { layer: 2 },
     hole: 'tap',
@@ -44,7 +44,7 @@ describe('BuilderChip', () => {
 
   it('renders MT builder string', () => {
     const mtPending: PendingFill = {
-      target: { layer: 0, row: 0, column: 0 },
+      target: { kind: 'key', layer: 0, row: 0, column: 0 },
       kind: 'MT',
       fixed: { mod_mask: 1 },
       hole: 'tap',
@@ -56,7 +56,7 @@ describe('BuilderChip', () => {
 
   it('renders LM builder string with mod hole', () => {
     const lmPending: PendingFill = {
-      target: { layer: 0, row: 0, column: 0 },
+      target: { kind: 'key', layer: 0, row: 0, column: 0 },
       kind: 'LM',
       fixed: { layer: 3 },
       hole: 'mod',

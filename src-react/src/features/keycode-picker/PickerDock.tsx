@@ -86,7 +86,7 @@ export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) 
           onClick={() =>
             expanded
               ? usePickerStore.getState().close()
-              : usePickerStore.getState().open({ layer: 0, row: 0, column: 0 })
+              : usePickerStore.getState().open({ kind: 'key', layer: 0, row: 0, column: 0 })
           }
           style={{
             background: 'none',

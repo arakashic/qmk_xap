@@ -1,5 +1,5 @@
 import type { MappedKeymap, MappedKeymapKey, KeyCode } from '@/xap/types'
-import type { FillTarget, PendingFill } from '@/features/keycode-picker/templateFill'
+import type { KeyTarget, PickerTarget, PendingFill } from '@/features/keycode-picker/templateFill'
 import { KeyCap } from './KeyCap'
 
 // Build a synthetic split KeyCode for the pending preview.
@@ -29,15 +29,15 @@ interface BoardProps {
   keymap: MappedKeymap
   layer: number
   /** Called when a board key is clicked; passes the key's fill target. */
-  onSelectKey?: (target: FillTarget) => void
+  onSelectKey?: (target: KeyTarget) => void
   /** Which key is currently selected (shown with blue outline). */
-  selectedTarget?: FillTarget | null
+  selectedTarget?: PickerTarget | null
   /** If set, the key at this target renders the pending preview (split with holeZone=tap). */
   pendingFill?: PendingFill | null
 }
 
-function isSameTarget(a: FillTarget, b: { layer: number; row: number; column: number }): boolean {
-  return a.layer === b.layer && a.row === b.row && a.column === b.column
+function isSameKeyTarget(a: PickerTarget, b: KeyTarget): boolean {
+  return a.kind === 'key' && a.layer === b.layer && a.row === b.row && a.column === b.column
 }
 
 export function Board({ keymap, layer, onSelectKey, selectedTarget, pendingFill }: BoardProps) {
@@ -79,10 +79,13 @@ export function Board({ keymap, layer, onSelectKey, selectedTarget, pendingFill 
 
         const keyRow = Number(k.layout.matrix.y)
         const keyCol = Number(k.layout.matrix.x)
-        const target: FillTarget = { layer, row: keyRow, column: keyCol }
+        const target: KeyTarget = { kind: 'key', layer, row: keyRow, column: keyCol }
 
-        const isSelected = selectedTarget != null && isSameTarget(selectedTarget, target)
-        const isPending = pendingFill != null && isSameTarget(pendingFill.target, target)
+        const isSelected = selectedTarget != null && isSameKeyTarget(selectedTarget, target)
+        const isPending =
+          pendingFill != null &&
+          pendingFill.target.kind === 'key' &&
+          isSameKeyTarget(pendingFill.target, target)
 
         // Pending preview: synthesize a split code so the cap renders with the
         // hold filled and a dashed "?" hole in the tap zone.
