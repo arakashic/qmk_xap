@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { KeycodeViewTab, KeyCode } from '@/xap/types'
 import { filterCodes } from './fuzzy'
 import { PickerKey } from './PickerKey'
@@ -21,10 +22,6 @@ function buildAnsiRows(codes: KeyCode[]): KeyCode[][] {
     for (const key of rowKeys) {
       const c = byKey.get(key)
       if (c) row.push(c)
-    }
-    // also collect modifier and remaining basic keys not in the ANSI rows
-    if (rows.length === 0) {
-      // put them in first row as fallback (already handled below)
     }
     if (row.length > 0) rows.push(row)
   }
@@ -51,13 +48,10 @@ const MOD_SHORT: Record<string, string> = {
 }
 
 // Build a descriptive KeyCode for a modifier entry in MT / QK_MODS subgroups.
-// Uses group='hold' so legendOf renders it as prefix { tag:'hold', payload:modName }.
 function expandModTemplate(kind: string, mods: string[]): KeyCode[] {
   return mods.map((mod) => ({
     key: `${kind}(${mod})`,
     label: MOD_SHORT[mod] ?? mod,
-    // group='hold' drives prefix legend: small "hold" tag + big mod-name payload
-    group: 'hold',
   }))
 }
 
@@ -80,7 +74,7 @@ interface PickerHoldKeyProps {
   onHover: (code: KeyCode | null) => void
 }
 
-const HOLD_STYLE: Record<string, React.CSSProperties> = {
+const HOLD_STYLE: Record<string, CSSProperties> = {
   modtap:   { background: 'var(--fam-modtap-bg)',   border: '1px solid var(--fam-modtap-bd)',   color: 'var(--fam-modtap-fg)' },
   modified: { background: 'var(--fam-modified-bg)', border: '1px solid var(--fam-modified-bd)', color: 'var(--fam-modified-fg)' },
 }
@@ -113,17 +107,28 @@ function PickerHoldKey({ code, family, onPick, onHover }: PickerHoldKeyProps) {
   )
 }
 
-// Family color for a tab
-function tabChipStyle(color: string | null): React.CSSProperties {
+// Family color for a tab (inactive state: light tint bg)
+function tabChipStyle(color: string | null): CSSProperties {
   if (!color) return {}
-  // Derive a lighter bg tint from the border color
-  const colorMap: Record<string, React.CSSProperties> = {
+  const colorMap: Record<string, CSSProperties> = {
     '#93c5fd': { background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8' },
     '#c4b5fd': { background: '#f5f3ff', borderColor: '#c4b5fd', color: '#6d28d9' },
     '#67e8f9': { background: '#ecfeff', borderColor: '#67e8f9', color: '#0891b2' },
     '#fdba74': { background: '#fff7ed', borderColor: '#fdba74', color: '#c2410c' },
   }
   return colorMap[color] ?? {}
+}
+
+// Active tab: family tabs use their saturated dark color; others use --primary
+function activeTabChipStyle(color: string | null): CSSProperties {
+  const familyActive: Record<string, CSSProperties> = {
+    '#93c5fd': { background: '#1d4ed8', borderColor: '#1d4ed8', color: '#fff' },
+    '#c4b5fd': { background: '#6d28d9', borderColor: '#6d28d9', color: '#fff' },
+    '#67e8f9': { background: '#0891b2', borderColor: '#0891b2', color: '#fff' },
+    '#fdba74': { background: '#c2410c', borderColor: '#c2410c', color: '#fff' },
+  }
+  if (color && familyActive[color]) return familyActive[color]
+  return { background: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary))', color: '#fff' }
 }
 
 interface PickerCatalogProps {
@@ -169,7 +174,7 @@ export function PickerCatalog({
                 cursor: 'default',
                 fontWeight: 500,
                 ...(isActive
-                  ? { background: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary))', color: '#fff' }
+                  ? activeTabChipStyle(t.color ?? null)
                   : t.color
                     ? chipStyle
                     : { background: '#fff', borderColor: 'hsl(var(--border))', color: 'hsl(var(--muted-foreground))' }),
