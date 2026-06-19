@@ -1,28 +1,32 @@
-import { useDevices } from '@/queries/devices'
+import { useDevices, useDeviceState } from '@/queries/devices'
+import { useUiStore } from '@/store/ui'
+import { DeviceCard } from './DeviceCard'
+
+interface ContainerProps {
+  id: string
+  isActive: boolean
+}
+
+function DeviceCardContainer({ id, isActive }: ContainerProps) {
+  const { data: state } = useDeviceState(id)
+  if (!state) return null
+  return (
+    <DeviceCard
+      state={state}
+      isActive={isActive}
+      onSetActive={() => useUiStore.getState().setActiveDevice(id)}
+    />
+  )
+}
 
 export function DevicesPage() {
   const { data: devices } = useDevices()
+  const activeDeviceId = useUiStore((s) => s.activeDeviceId)
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: 'hsl(var(--foreground))' }}>
-        Devices
-      </h2>
+    <div style={{ flex: 1, overflowY: 'auto', paddingTop: 18 }}>
       {devices?.map((d) => (
-        <div
-          key={d.id}
-          style={{
-            padding: '10px 14px',
-            marginBottom: 8,
-            borderRadius: 'calc(var(--radius) - 2px)',
-            border: '1px solid hsl(var(--border))',
-            background: 'hsl(var(--card))',
-            fontSize: 12,
-            color: 'hsl(var(--foreground))',
-          }}
-        >
-          {d.product} · {d.manufacturer} · {d.secureStatus}
-        </div>
+        <DeviceCardContainer key={d.id} id={d.id} isActive={d.id === activeDeviceId} />
       ))}
     </div>
   )
