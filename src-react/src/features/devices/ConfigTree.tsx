@@ -33,19 +33,8 @@ export function filterTree(node: unknown, query: string): unknown | null {
   }
 
   if (Array.isArray(node)) {
-    // Treat arrays like objects with numeric keys, but preserve as array
-    const result: unknown[] = []
-    let anyMatch = false
-    for (const item of node) {
-      const filtered = filterTree(item, query)
-      if (filtered !== null) {
-        result.push(filtered)
-        anyMatch = true
-      } else {
-        result.push(null)
-      }
-    }
-    return anyMatch ? result : null
+    const result = node.map((i) => filterTree(i, query)).filter((v) => v !== null)
+    return result.length ? result : null
   }
 
   // Leaf: check if string representation matches

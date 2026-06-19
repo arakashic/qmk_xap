@@ -23,7 +23,7 @@ export default function App() {
 
   const activeDevice = devices?.find((d) => d.id === activeDeviceId) ?? null
 
-  const isDeviceRoute = route !== 'devices'
+  const showChrome = route !== 'devices'
 
   return (
     <div
@@ -46,7 +46,7 @@ export default function App() {
           overflow: 'hidden',
         }}
       >
-        {isDeviceRoute && <TopBar device={activeDevice} />}
+        {showChrome && <TopBar device={activeDevice} />}
         {route === 'keymap' && <KeymapPage />}
         {route === 'lighting' && (
           <div
@@ -62,7 +62,7 @@ export default function App() {
           </div>
         )}
         {route === 'devices' && <DevicesPage />}
-        {isDeviceRoute && <DevtoolsStrip />}
+        {showChrome && <DevtoolsStrip />}
       </div>
     </div>
   )

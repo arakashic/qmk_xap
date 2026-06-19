@@ -49,4 +49,18 @@ describe('filterTree', () => {
     expect(result['rows']).toEqual(['B0', 'B1'])
     expect(result['cols']).toBeUndefined()
   })
+
+  describe('array branch — no null placeholders', () => {
+    it('single match: returns only matching element, no null slots', () => {
+      expect(filterTree(['B0', 'B1', 'C0'], 'B0')).toEqual(['B0'])
+    })
+
+    it('multiple matches: returns all matching elements compacted', () => {
+      expect(filterTree(['B0', 'B1', 'C0'], 'B')).toEqual(['B0', 'B1'])
+    })
+
+    it('no match: returns null', () => {
+      expect(filterTree(['B0', 'B1', 'C0'], 'Z')).toBeNull()
+    })
+  })
 })
