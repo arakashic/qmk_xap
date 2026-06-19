@@ -3,10 +3,11 @@ import { useUiStore } from '@/store/ui'
 import { usePickerStore } from '@/store/picker'
 import { useMappedKeymap } from '@/queries/devices'
 import { useRemapKey } from '@/queries/keymap'
-import { useSetEncoderKeycode } from '@/queries/encoders'
+import { useEncoderKeymap, useSetEncoderKeycode } from '@/queries/encoders'
 import { startFill, completeFill, shouldComplete } from '@/features/keycode-picker/templateFill'
 import type { PickerTarget } from '@/features/keycode-picker/templateFill'
 import { PickerDock } from '@/features/keycode-picker/PickerDock'
+import { EncoderRail } from '@/features/encoders/EncoderRail'
 import type { KeyCode } from '@/xap/types'
 import { Board } from './Board'
 import { LayerBar } from './LayerBar'
@@ -15,6 +16,8 @@ export function KeymapPage() {
   const activeDeviceId = useUiStore((s) => s.activeDeviceId)
   const selectedLayer = useUiStore((s) => s.selectedLayer)
   const { data: keymap, isLoading } = useMappedKeymap(activeDeviceId)
+
+  const { data: encoders } = useEncoderKeymap(activeDeviceId)
 
   const picker = usePickerStore()
   const remapKey = useRemapKey(activeDeviceId ?? '')
@@ -40,6 +43,14 @@ export function KeymapPage() {
       picker.open(target)
     },
     [picker],
+  )
+
+  // Handle encoder slot click: open picker for the encoder target.
+  const handleSelectSlot = useCallback(
+    (encoder: number, clockwise: number) => {
+      picker.open({ kind: 'encoder', layer: selectedLayer, encoder, clockwise })
+    },
+    [picker, selectedLayer],
   )
 
   // Route a write to the correct mutation based on target kind.
@@ -184,6 +195,12 @@ export function KeymapPage() {
           pendingFill={picker.pending}
         />
       </div>
+      <EncoderRail
+        encoders={encoders?.[selectedLayer] ?? []}
+        selectedTarget={picker.target}
+        pendingFill={picker.pending}
+        onSelectSlot={handleSelectSlot}
+      />
       <PickerDock layerCount={layerCount} onPick={handlePick} />
     </div>
   )

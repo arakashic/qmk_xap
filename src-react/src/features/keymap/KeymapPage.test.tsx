@@ -327,4 +327,59 @@ describe('KeymapPage flow integration', () => {
     expect(encTarget).toEqual({ kind: 'encoder', layer: 0, encoder: 0, clockwise: 1 })
     expect(code.key).toBe('KC_A')
   })
+
+  it('encoder rail CW slot click → pick → setEncoderKeycode, not remapKey', async () => {
+    const client = new MockXapClient()
+    const remapSpy = vi.spyOn(client, 'remapKey')
+    const setEncSpy = vi.spyOn(client, 'setEncoderKeycode')
+    const qc = makeQc()
+
+    useUiStore.setState({ activeDeviceId: DEVICE_ID, selectedLayer: 0 })
+    render(<Wrapper client={client} qc={qc} />)
+
+    // Wait for board and encoder rail to render (encoder query resolves alongside keymap)
+    await waitForBoard()
+
+    // The CW slot of encoder 0 in the fixture is KC_VOLU (label 'Vol+').
+    // The Slot button text = '↻' + 'Vol+' + 'CW'
+    const cwButton = await waitFor(() => {
+      const buttons = screen.getAllByRole('button')
+      const found = buttons.find(
+        (b) => b.textContent?.includes('↻') && b.textContent?.includes('CW'),
+      )
+      if (!found) throw new Error('CW slot button not found in encoder rail')
+      return found
+    })
+
+    // Click the CW slot — opens picker with encoder target
+    fireEvent.click(cwButton)
+
+    // Picker target should be the encoder CW slot
+    expect(usePickerStore.getState().target).toEqual({
+      kind: 'encoder',
+      layer: 0,
+      encoder: 0,
+      clockwise: 1,
+    })
+
+    // Wait for basic catalog to render
+    await waitForPickerBasicKeys()
+
+    // Pick 'B' from the basic catalog
+    const pickerB = await waitForPickerButton('B')
+    fireEvent.click(pickerB)
+
+    // Exactly one setEncoderKeycode write; remapKey not called
+    await waitFor(() => expect(setEncSpy).toHaveBeenCalledTimes(1))
+    expect(remapSpy).not.toHaveBeenCalled()
+
+    // Correct target + code
+    const [, encTarget, code] = setEncSpy.mock.calls[0]
+    expect(encTarget).toEqual({ kind: 'encoder', layer: 0, encoder: 0, clockwise: 1 })
+    expect(code.key).toBe('KC_B')
+
+    // Mock client state updated — encoder 0 CW now KC_B
+    const encoderMap = await client.getEncoderKeymap(DEVICE_ID)
+    expect(encoderMap[0][0].cw.key).toBe('KC_B')
+  })
 })
