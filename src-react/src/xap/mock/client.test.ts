@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { MockXapClient } from './client'
 import { ugoState } from './fixtures'
+import { ugoConstants } from './constants'
 
 describe('MockXapClient', () => {
   it('lists the seeded device', async () => {
@@ -18,5 +19,24 @@ describe('MockXapClient', () => {
   it('rejects unknown device ids', async () => {
     const c = new MockXapClient()
     await expect(c.getDeviceState('nope')).rejects.toThrow()
+  })
+  it('getConstants returns the keycode view tabs', async () => {
+    const c = new MockXapClient()
+    const k = await c.getConstants()
+    expect(k.keycode_view.tabs.map((t) => t.id)).toEqual(ugoConstants.keycode_view.tabs.map((t) => t.id))
+    expect(k.keycode_view.tabs.length).toBeGreaterThan(0)
+  })
+  it('remapKey updates the mapped keymap at the target position', async () => {
+    const c = new MockXapClient()
+    const [d] = await c.listDevices()
+    const newCode = { key: 'KC_Z', label: 'Z' }
+    // pick an existing key's matrix position from the fixture (layer 0)
+    const km0 = await c.getMappedKeymap(d.id)
+    const first = km0.keys[0].flat().find(Boolean)!
+    const row = Number(first.layout.matrix.y), column = Number(first.layout.matrix.x)
+    await c.remapKey(d.id, { layer: 0, row, column }, newCode)
+    const km1 = await c.getMappedKeymap(d.id)
+    const updated = km1.keys[0].flat().find((k) => k && Number(k.layout.matrix.y) === row && Number(k.layout.matrix.x) === column)!
+    expect(updated.key.code.key).toBe('KC_Z')
   })
 })
