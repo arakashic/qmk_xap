@@ -1,13 +1,40 @@
-// Top bar: centered device chip + secure-status button (display-only this plan)
+// Top bar: centered device chip + secure-status toggle for the active device
 import type { DeviceSummary } from '@/xap/client'
+import { Button } from '@/components/ui/button'
+import { secureToggleLabel } from '@/features/devices/secureToggle'
+import { useSecureLock, useSecureUnlock } from '@/queries/devices'
 
 interface TopBarProps {
   device: DeviceSummary | null
 }
 
-export function TopBar({ device }: TopBarProps) {
-  const isUnlocked = device?.secureStatus === 'Unlocked'
+function SecureToggle({ device }: { device: DeviceSummary }) {
+  const secureLock = useSecureLock(device.id)
+  const secureUnlock = useSecureUnlock(device.id)
+  const { label, disabled } = secureToggleLabel(device.secureStatus)
 
+  function handleToggle() {
+    if (device.secureStatus === 'Unlocked') {
+      secureLock.mutate()
+    } else if (device.secureStatus === 'Locked') {
+      secureUnlock.mutate()
+    }
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={disabled}
+      onClick={handleToggle}
+      style={{ fontSize: 11, height: 26, padding: '0 9px' }}
+    >
+      {label}
+    </Button>
+  )
+}
+
+export function TopBar({ device }: TopBarProps) {
   return (
     <div
       style={{
@@ -36,37 +63,7 @@ export function TopBar({ device }: TopBarProps) {
       >
         ⌨ {device ? device.product : 'No device'}
       </span>
-      {device && (
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            height: 26,
-            padding: '0 9px',
-            fontSize: 10,
-            fontWeight: 500,
-            borderRadius: 'calc(var(--radius) - 2px)',
-            border: '1px solid hsl(var(--border))',
-            background: 'hsl(var(--background))',
-            boxShadow: '0 1px 2px rgb(0 0 0 / .04)',
-            color: 'hsl(var(--foreground))',
-          }}
-        >
-          {isUnlocked && (
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: 'hsl(142 71% 45%)',
-                flexShrink: 0,
-              }}
-            />
-          )}
-          {device.secureStatus}
-        </span>
-      )}
+      {device && <SecureToggle device={device} />}
     </div>
   )
 }
