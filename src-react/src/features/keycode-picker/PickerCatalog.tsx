@@ -33,11 +33,29 @@ function buildAnsiRows(codes: KeyCode[]): KeyCode[][] {
 }
 
 function expandLayerTemplate(kind: string, layerCount: number): KeyCode[] {
-  return Array.from({ length: layerCount }, (_, i) => ({
-    key: `${kind}(${i})`,
-    label: `L${i}`,
-    template: { kind: 'LayerOp', op: kind, layer: i } as KeyCode['template'],
-  }))
+  return Array.from({ length: layerCount }, (_, i) => {
+    // LT and LM are two-step picks (need a second hole fill); embed a partial
+    // template so the onPick handler can detect them.
+    if (kind === 'LT') {
+      return {
+        key: `LT(${i})`,
+        label: `L${i}`,
+        template: { kind: 'LayerTap', layer: i, tap_kc: null } as KeyCode['template'],
+      }
+    }
+    if (kind === 'LM') {
+      return {
+        key: `LM(${i})`,
+        label: `L${i}`,
+        template: { kind: 'LayerMod', layer: i, mod_mask: null } as KeyCode['template'],
+      }
+    }
+    return {
+      key: `${kind}(${i})`,
+      label: `L${i}`,
+      template: { kind: 'LayerOp', op: kind, layer: i } as KeyCode['template'],
+    }
+  })
 }
 
 // Human-readable short name for a QMK mod string
@@ -47,12 +65,32 @@ const MOD_SHORT: Record<string, string> = {
   MEH: 'Meh', HYPR: 'Hyper',
 }
 
+// QMK mod bit masks (MOD_LCTL=0x01, MOD_LSFT=0x02, etc.)
+const MOD_MASK: Record<string, number> = {
+  LCTL: 0x01, LSFT: 0x02, LALT: 0x04, LGUI: 0x08,
+  RCTL: 0x10, RSFT: 0x20, RALT: 0x40, RGUI: 0x80,
+  MEH: 0x07, HYPR: 0x0F,
+}
+
 // Build a descriptive KeyCode for a modifier entry in MT / QK_MODS subgroups.
+// MT entries embed a partial ModTap template (tap_kc: null = hole) so the
+// onPick handler can detect them as two-step picks.
 function expandModTemplate(kind: string, mods: string[]): KeyCode[] {
-  return mods.map((mod) => ({
-    key: `${kind}(${mod})`,
-    label: MOD_SHORT[mod] ?? mod,
-  }))
+  return mods.map((mod) => {
+    const mask = MOD_MASK[mod] ?? 0
+    if (kind === 'MT') {
+      return {
+        key: `MT(${mod})`,
+        label: MOD_SHORT[mod] ?? mod,
+        template: { kind: 'ModTap', mod_mask: mask, tap_kc: null } as KeyCode['template'],
+      }
+    }
+    // QK_MODS (Modified) — single-step, no hole needed
+    return {
+      key: `${kind}(${mod})`,
+      label: MOD_SHORT[mod] ?? mod,
+    }
+  })
 }
 
 // For OSL (one-shot layer) subgroup

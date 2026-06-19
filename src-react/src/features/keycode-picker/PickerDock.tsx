@@ -10,6 +10,8 @@ import { BuilderChip } from './BuilderChip'
 
 interface PickerDockProps {
   layerCount: number
+  /** Called when the user picks a keycode from the catalog. */
+  onPick?: (code: import('@/xap/types').KeyCode) => void
 }
 
 // Inactive family tint styles (light bg)
@@ -34,7 +36,7 @@ const PRIMARY_ACTIVE: CSSProperties = {
   color: '#fff',
 }
 
-export function PickerDock({ layerCount }: PickerDockProps) {
+export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) {
   const { data: constants } = useConstants()
   const {
     dockOpen, dockPinned, pending, hovered, activeTab, query,
@@ -56,10 +58,7 @@ export function PickerDock({ layerCount }: PickerDockProps) {
   }
 
   const onPick = (code: import('@/xap/types').KeyCode) => {
-    // In Task 5 we just close pending on pick; full completeFill wiring is Task 6
-    if (pending) setPending(null)
-    // TODO(Task6): completeFill(pending, code) -> write to keymap
-    void code
+    onPickProp?.(code)
   }
 
   return (

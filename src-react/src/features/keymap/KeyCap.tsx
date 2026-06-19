@@ -15,6 +15,11 @@ interface KeyCapProps {
   /** Override width/height in px (for Board keys which use key-unit sizing). */
   width?: number
   height?: number
+  /**
+   * When 'tap', and the legend is a split cap (ModTap / LayerTap),
+   * draw the tap zone as a dashed amber box with "?" — the pending hole.
+   */
+  holeZone?: 'tap'
 }
 
 // ---- style helpers ---------------------------------------------------------
@@ -57,7 +62,7 @@ const HOLD_STYLE: Record<string, React.CSSProperties> = {
 
 // ---- render helpers --------------------------------------------------------
 
-function renderLegend(legend: LegendModel, live: boolean, width: number, height: number, resolvedCode?: KeyCode): React.ReactNode {
+function renderLegend(legend: LegendModel, live: boolean, width: number, height: number, resolvedCode?: KeyCode, holeZone?: 'tap'): React.ReactNode {
   switch (legend.kind) {
     case 'basic': {
       return (
@@ -80,7 +85,23 @@ function renderLegend(legend: LegendModel, live: boolean, width: number, height:
             {legend.hold}
           </div>
           <div style={{ width: '100%', height: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
-            {legend.tap}
+            {holeZone === 'tap'
+              ? (
+                  <span
+                    data-testid="hole-zone"
+                    style={{
+                      border: '1px dashed #d69e2e',
+                      borderRadius: 3,
+                      padding: '0 5px',
+                      fontSize: 9,
+                      background: '#fffbea',
+                      color: '#b7791f',
+                    }}
+                  >
+                    ?
+                  </span>
+                )
+              : legend.tap}
           </div>
         </>
       )
@@ -182,13 +203,13 @@ function capStyle(legend: LegendModel, width: number, height: number, liveGhost:
 
 // ---- component -------------------------------------------------------------
 
-export function KeyCap({ code, live = false, resolvedCode, width = CAP_SIZE, height = CAP_SIZE }: KeyCapProps) {
+export function KeyCap({ code, live = false, resolvedCode, width = CAP_SIZE, height = CAP_SIZE, holeZone }: KeyCapProps) {
   const legend = legendOf(code)
   const liveGhost = legend.kind === 'trns' && live && resolvedCode !== undefined
   const style = capStyle(legend, width, height, liveGhost)
   return (
     <div style={style}>
-      {renderLegend(legend, live, width, height, resolvedCode)}
+      {renderLegend(legend, live, width, height, resolvedCode, holeZone)}
     </div>
   )
 }

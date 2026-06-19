@@ -21,3 +21,17 @@ it('live ghost renders resolved key label recursively', () => {
   )
   expect(screen.getByText('A')).toBeInTheDocument()
 })
+
+it('holeZone=tap on a split cap renders amber dashed "?" tap zone', () => {
+  // A ModTap key has a split legend
+  const mtCode = {
+    key: 'MT(MOD_LCTL,KC_S)',
+    label: 'S',
+    top: 'Ctrl',
+    group: 'ModTap',
+    template: { kind: 'ModTap' as const, mod_mask: 0x01, tap_kc: 0x16 },
+  }
+  render(<KeyCap code={mtCode} holeZone="tap" />)
+  expect(screen.getByTestId('hole-zone')).toBeInTheDocument()
+  expect(screen.getByText('?')).toBeInTheDocument()
+})
