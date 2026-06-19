@@ -8,6 +8,11 @@ type Entry = { state: XapDeviceState; keymap: MappedKeymap; encoders: EncoderKey
 
 export class MockXapClient implements XapClient {
   private devices: Map<string, Entry>
+  private handlers: Set<(e: XapEvent) => void> = new Set()
+
+  private emit(e: XapEvent): void {
+    for (const h of this.handlers) h(e)
+  }
 
   constructor() {
     // Deep-clone fixtures so mutations don't affect shared fixture objects.
@@ -54,19 +59,17 @@ export class MockXapClient implements XapClient {
     if (!e) throw new Error(`unknown device ${id}`)
     const layerKeys = e.keymap.keys[target.layer]
     if (!layerKeys) throw new Error(`layer ${target.layer} not found`)
-    for (const row of layerKeys) {
-      for (const key of row) {
-        if (
-          key &&
-          Number(key.layout.matrix.y) === target.row &&
-          Number(key.layout.matrix.x) === target.column
-        ) {
+    const { row, column: col } = target
+    for (const rowArr of layerKeys) {
+      for (const key of rowArr) {
+        if (key && Number(key.layout.matrix.y) === row && Number(key.layout.matrix.x) === col) {
           key.key.code = code
+          this.emit({ kind: 'LogReceived', data: { id, log: `remap r${row} c${col} -> ${code.key}` } })
           return
         }
       }
     }
-    throw new Error(`key at layer=${target.layer} row=${target.row} col=${target.column} not found`)
+    throw new Error(`key at layer=${target.layer} row=${row} col=${col} not found`)
   }
 
   async getEncoderKeymap(id: string): Promise<EncoderKeymap> {
@@ -85,18 +88,22 @@ export class MockXapClient implements XapClient {
     const slot = e.encoders[target.layer]?.[target.encoder]
     if (!slot) throw new Error(`encoder ${target.encoder} layer ${target.layer} not found`)
     slot[target.clockwise ? 'cw' : 'ccw'] = code
+    const { encoder, clockwise } = target
+    this.emit({ kind: 'LogReceived', data: { id, log: `encoder ${encoder} ${clockwise ? 'CW' : 'CCW'} -> ${code.key}` } })
   }
 
   async secureLock(id: string): Promise<void> {
     const e = this.devices.get(id)
     if (!e) throw new Error(`unknown device ${id}`)
     e.state.secure_status = 'Locked'
+    this.emit({ kind: 'SecureStatusChanged', data: { id, secure_status: 'Locked' } })
   }
 
   async secureUnlock(id: string): Promise<void> {
     const e = this.devices.get(id)
     if (!e) throw new Error(`unknown device ${id}`)
     e.state.secure_status = 'Unlocked'
+    this.emit({ kind: 'SecureStatusChanged', data: { id, secure_status: 'Unlocked' } })
   }
 
   async jumpToBootloader(id: string): Promise<void> {
@@ -109,7 +116,8 @@ export class MockXapClient implements XapClient {
     if (!e) throw new Error(`unknown device ${id}`)
   }
 
-  subscribe(_h: (e: XapEvent) => void): Unsubscribe {
-    return () => {}
+  subscribe(h: (e: XapEvent) => void): Unsubscribe {
+    this.handlers.add(h)
+    return () => { this.handlers.delete(h) }
   }
 }

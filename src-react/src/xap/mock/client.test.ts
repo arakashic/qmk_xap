@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { MockXapClient } from './client'
+import type { XapEvent } from '../types'
 import { ugoState } from './fixtures'
 import { ugoConstants } from './constants'
 import { ugoEncoders } from './encoders'
@@ -67,5 +68,23 @@ describe('MockXapClient', () => {
     const c = new MockXapClient(); const [d] = await c.listDevices()
     await expect(c.jumpToBootloader(d.id)).resolves.toBeUndefined()
     await expect(c.reinitializeEeprom(d.id)).resolves.toBeUndefined()
+  })
+  it('subscribe receives a SecureStatusChanged event on secureLock; unsubscribe stops delivery', async () => {
+    const c = new MockXapClient(); const [d] = await c.listDevices()
+    const events: XapEvent[] = []
+    const off = c.subscribe((e) => events.push(e))
+    await c.secureLock(d.id)
+    expect(events.some((e) => e.kind === 'SecureStatusChanged' && e.data.secure_status === 'Locked')).toBe(true)
+    off()
+    await c.secureUnlock(d.id)
+    expect(events.filter((e) => e.kind === 'SecureStatusChanged').length).toBe(1)  // no more after unsubscribe
+  })
+  it('remapKey emits a LogReceived event', async () => {
+    const c = new MockXapClient(); const [d] = await c.listDevices()
+    const events: XapEvent[] = []
+    c.subscribe((e) => events.push(e))
+    // row=3, col=3 is the KC_A position in the ugo fixture
+    await c.remapKey(d.id, { layer: 0, row: 3, column: 3 }, { key: 'KC_X', label: 'X' })
+    expect(events.some((e) => e.kind === 'LogReceived')).toBe(true)
   })
 })
