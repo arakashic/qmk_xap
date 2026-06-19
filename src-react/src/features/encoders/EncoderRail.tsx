@@ -3,13 +3,14 @@ import type { PickerTarget, PendingFill } from '@/features/keycode-picker/templa
 import { EncoderKnob } from './EncoderKnob'
 
 export interface EncoderRailProps {
+  layer: number
   encoders: EncoderSlots[]
   selectedTarget: PickerTarget | null
   pendingFill: PendingFill | null
   onSelectSlot: (encoder: number, clockwise: number) => void
 }
 
-export function EncoderRail({ encoders, selectedTarget, pendingFill, onSelectSlot }: EncoderRailProps) {
+export function EncoderRail({ layer, encoders, selectedTarget, pendingFill, onSelectSlot }: EncoderRailProps) {
   return (
     <div
       style={{
@@ -22,15 +23,23 @@ export function EncoderRail({ encoders, selectedTarget, pendingFill, onSelectSlo
       }}
     >
       {encoders.map((enc, i) => {
-        // selectedTarget maps to knob slot
+        // selectedTarget maps to knob slot; guard by layer to avoid cross-layer highlight
         let selectedSlot: 'ccw' | 'cw' | undefined
-        if (selectedTarget?.kind === 'encoder' && selectedTarget.encoder === i) {
+        if (
+          selectedTarget?.kind === 'encoder' &&
+          selectedTarget.layer === layer &&
+          selectedTarget.encoder === i
+        ) {
           selectedSlot = selectedTarget.clockwise ? 'cw' : 'ccw'
         }
 
-        // pendingFill maps to knob slot
+        // pendingFill maps to knob slot; guard by layer
         let pendingSlot: 'ccw' | 'cw' | undefined
-        if (pendingFill?.target.kind === 'encoder' && pendingFill.target.encoder === i) {
+        if (
+          pendingFill?.target.kind === 'encoder' &&
+          pendingFill.target.layer === layer &&
+          pendingFill.target.encoder === i
+        ) {
           pendingSlot = pendingFill.target.clockwise ? 'cw' : 'ccw'
         }
 

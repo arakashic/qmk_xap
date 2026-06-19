@@ -13,6 +13,7 @@ describe('EncoderRail', () => {
   it('renders 3 knobs for 3 encoders', () => {
     render(
       <EncoderRail
+        layer={0}
         encoders={THREE_ENCODERS}
         selectedTarget={null}
         pendingFill={null}
@@ -28,6 +29,7 @@ describe('EncoderRail', () => {
   it('CCW and CW labels are present for all 3 knobs', () => {
     render(
       <EncoderRail
+        layer={0}
         encoders={THREE_ENCODERS}
         selectedTarget={null}
         pendingFill={null}
@@ -43,6 +45,7 @@ describe('EncoderRail', () => {
   it('renders CCW arrow ↺ and CW arrow ↻ for each knob', () => {
     render(
       <EncoderRail
+        layer={0}
         encoders={THREE_ENCODERS}
         selectedTarget={null}
         pendingFill={null}
@@ -51,5 +54,44 @@ describe('EncoderRail', () => {
     )
     expect(screen.getAllByText('↺')).toHaveLength(3)
     expect(screen.getAllByText('↻')).toHaveLength(3)
+  })
+
+  it('does not highlight a slot when selectedTarget layer differs from rail layer', () => {
+    // Target is on layer 0, enc 0, CW — but rail is rendering layer 1.
+    // The CW button for enc 0 must NOT be marked selected.
+    render(
+      <EncoderRail
+        layer={1}
+        encoders={THREE_ENCODERS}
+        selectedTarget={{ kind: 'encoder', layer: 0, encoder: 0, clockwise: 1 }}
+        pendingFill={null}
+        onSelectSlot={() => {}}
+      />,
+    )
+    // All slot buttons must have no data-selected attribute
+    const buttons = screen.getAllByRole('button')
+    for (const btn of buttons) {
+      expect(btn.hasAttribute('data-selected')).toBe(false)
+    }
+  })
+
+  it('does not apply pending styling when pendingFill layer differs from rail layer', () => {
+    // PendingFill targets enc 0 CCW on layer 0, but rail is layer 1.
+    // No hole-zone should appear.
+    render(
+      <EncoderRail
+        layer={1}
+        encoders={THREE_ENCODERS}
+        selectedTarget={null}
+        pendingFill={{
+          target: { kind: 'encoder', layer: 0, encoder: 0, clockwise: 0 },
+          kind: 'LT',
+          fixed: { layer: 2 },
+          hole: 'tap',
+        }}
+        onSelectSlot={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('hole-zone')).toBeNull()
   })
 })

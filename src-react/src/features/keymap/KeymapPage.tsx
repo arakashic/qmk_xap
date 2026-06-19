@@ -196,6 +196,7 @@ export function KeymapPage() {
         />
       </div>
       <EncoderRail
+        layer={selectedLayer}
         encoders={encoders?.[selectedLayer] ?? []}
         selectedTarget={picker.target}
         pendingFill={picker.pending}

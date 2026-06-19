@@ -4,8 +4,6 @@ export type KeyTarget = { kind: 'key'; layer: number; row: number; column: numbe
 export type EncoderTarget = { kind: 'encoder'; layer: number; encoder: number; clockwise: number }
 export type PickerTarget = KeyTarget | EncoderTarget
 
-/** @deprecated Use PickerTarget instead */
-export type FillTarget = { layer: number; row: number; column: number }
 
 export type PendingFill = {
   target: PickerTarget

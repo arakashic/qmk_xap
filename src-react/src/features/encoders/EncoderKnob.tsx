@@ -69,6 +69,7 @@ function Slot({ code, direction, isSelected, isPending, onClick }: SlotProps) {
     <button
       type="button"
       onClick={onClick}
+      data-selected={isSelected || undefined}
       style={{
         display: 'flex',
         flexDirection: 'column',
