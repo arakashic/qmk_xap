@@ -3,6 +3,7 @@ import path from 'path'
 
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import AutoImport from 'unplugin-auto-import/vite'
 
@@ -51,5 +52,8 @@ export default defineConfig({
         minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
         // produce sourcemaps for debug builds
         sourcemap: !!process.env.TAURI_DEBUG,
+    },
+    test: {
+        exclude: [...configDefaults.exclude, 'src-react/**'],
     },
 })
