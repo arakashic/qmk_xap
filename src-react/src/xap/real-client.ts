@@ -13,10 +13,10 @@ export interface XapCommands {
   keycodeTemplateEncode(template: KeycodeTemplate): Promise<Result<number, string>>
   remappingSetEncoderKeycode(id: string, arg: RemappingSetEncoderKeycodeArg): Promise<Result<null, string>>
   encoderKeymapGet(id: string): Promise<Result<KeyCode[][][], string>>
-  xapSecureLock(id: string): Promise<Result<null, Error>>
-  xapSecureUnlock(id: string): Promise<Result<null, Error>>
-  qmkJumpToBootloader(id: string): Promise<Result<QmkJumpToBootloaderResponse, Error>>
-  qmkReinitializeEeprom(id: string): Promise<Result<QmkReinitializeEepromResponse, Error>>
+  xapSecureLock(id: string): Promise<Result<null, string>>
+  xapSecureUnlock(id: string): Promise<Result<null, string>>
+  qmkJumpToBootloader(id: string): Promise<Result<QmkJumpToBootloaderResponse, string>>
+  qmkReinitializeEeprom(id: string): Promise<Result<QmkReinitializeEepromResponse, string>>
 }
 
 // Injected event source — desktop adapter wraps Tauri listen; web adapter wraps wasm emit.
