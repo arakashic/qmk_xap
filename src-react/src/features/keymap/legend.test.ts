@@ -52,6 +52,19 @@ describe('legendOf', () => {
     })
     expect(result).toMatchObject({ kind: 'descriptor', family: 'layermod', verb: 'layer+mod', payload: 'L1' })
   })
+
+  it('I1: basic key with group renders as plain, not prefix', () => {
+    // Real catalog populates group on basic keys (e.g. group:'basic'); must not fire prefix path
+    const result = legendOf({ key: 'KC_A', label: 'A', group: 'basic', code: 0x04 })
+    expect(result).toMatchObject({ kind: 'basic', label: 'A' })
+    expect(result.kind).not.toBe('prefix')
+  })
+
+  it('I1: genuine rgb prefix code still renders as prefix', () => {
+    // Regression guard: the existing rgb case must still work
+    const result = legendOf({ key: 'RGB_HUI', group: 'rgb', label: 'Hue+' })
+    expect(result).toMatchObject({ kind: 'prefix', tag: 'rgb', payload: 'Hue+' })
+  })
 })
 
 describe('modName', () => {

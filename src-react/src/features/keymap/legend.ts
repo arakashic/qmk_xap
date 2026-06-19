@@ -115,8 +115,8 @@ export function legendOf(code: KeyCode): LegendModel {
     }
   }
 
-  // Group prefix (e.g. rgb, bl, media)
-  if (code.group) {
+  // Group prefix (e.g. rgb, bl, media) — but NOT basic keys (KC_* keys carry group in real catalog)
+  if (code.group && !code.key.startsWith('KC_')) {
     const payload = code.label ?? code.key
     return { kind: 'prefix', tag: code.group, payload }
   }
