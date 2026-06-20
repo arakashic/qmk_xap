@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { RealXapClient } from './real-client'
 import { unwrap } from './result'
-import { ugoState, miniState, ugoKeymap } from './mock/fixtures'
+import { ugoState, miniState, ugoKeymap, ugoLighting } from './mock/fixtures'
 import { ugoConstants } from './mock/constants'
-import type { XapDeviceState, MappedKeymap, XapConstants, KeyCode, XapEvent } from './types'
+import type { XapDeviceState, MappedKeymap, XapConstants, KeyCode, XapEvent, BacklightConfig, RgbLightConfig, RgbMatrixConfig } from './types'
 import type { XapCommands, XapEventSource } from './real-client'
 import type { Unsubscribe } from './client'
 
@@ -41,6 +41,15 @@ function makeFakeCommands(overrides?: Partial<XapCommands>): XapCommands {
     xapSecureUnlock: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
     qmkJumpToBootloader: vi.fn().mockResolvedValue({ status: 'ok', data: 0 }),
     qmkReinitializeEeprom: vi.fn().mockResolvedValue({ status: 'ok', data: 0 }),
+    backlightGetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: ugoLighting.backlight }),
+    backlightSetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    backlightSaveConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    rgblightGetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: ugoLighting.rgblight }),
+    rgblightSetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    rgblightSaveConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    rgbmatrixGetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: ugoLighting.rgbmatrix }),
+    rgbmatrixSetConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    rgbmatrixSaveConfig: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
     ...overrides,
   }
 }
@@ -347,5 +356,82 @@ describe('RealXapClient subscribe', () => {
     fakeEvents.push(event)
     expect(h1).toHaveBeenCalledTimes(2)
     expect(h2).toHaveBeenCalledOnce() // unsubscribed
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 7: lighting get/set/save
+// ---------------------------------------------------------------------------
+
+describe('RealXapClient lighting', () => {
+  it('getLightingConfig(id, "rgbmatrix") returns RgbMatrixConfig', async () => {
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
+    const cfg = await client.getLightingConfig('dev1', 'rgbmatrix') as RgbMatrixConfig
+    expect(cfg).toEqual(ugoLighting.rgbmatrix)
+  })
+
+  it('getLightingConfig(id, "rgblight") returns RgbLightConfig', async () => {
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
+    const cfg = await client.getLightingConfig('dev1', 'rgblight') as RgbLightConfig
+    expect(cfg).toEqual(ugoLighting.rgblight)
+  })
+
+  it('getLightingConfig(id, "backlight") returns BacklightConfig', async () => {
+    const client = new RealXapClient(makeFakeCommands(), silentEvents)
+    const cfg = await client.getLightingConfig('dev1', 'backlight') as BacklightConfig
+    expect(cfg).toEqual(ugoLighting.backlight)
+  })
+
+  it('setLightingConfig(id, "rgblight", cfg) calls rgblightSetConfig with cfg', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    const cfg = ugoLighting.rgblight as RgbLightConfig
+    await client.setLightingConfig('dev1', 'rgblight', cfg)
+    expect(fakeCommands.rgblightSetConfig).toHaveBeenCalledWith('dev1', cfg)
+  })
+
+  it('setLightingConfig(id, "rgbmatrix", cfg) calls rgbmatrixSetConfig with cfg', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    const cfg = ugoLighting.rgbmatrix as RgbMatrixConfig
+    await client.setLightingConfig('dev1', 'rgbmatrix', cfg)
+    expect(fakeCommands.rgbmatrixSetConfig).toHaveBeenCalledWith('dev1', cfg)
+  })
+
+  it('setLightingConfig(id, "backlight", cfg) calls backlightSetConfig with cfg', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    const cfg = ugoLighting.backlight as BacklightConfig
+    await client.setLightingConfig('dev1', 'backlight', cfg)
+    expect(fakeCommands.backlightSetConfig).toHaveBeenCalledWith('dev1', cfg)
+  })
+
+  it('saveLightingConfig(id, "backlight") calls backlightSaveConfig', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await client.saveLightingConfig('dev1', 'backlight')
+    expect(fakeCommands.backlightSaveConfig).toHaveBeenCalledWith('dev1')
+  })
+
+  it('saveLightingConfig(id, "rgblight") calls rgblightSaveConfig', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await client.saveLightingConfig('dev1', 'rgblight')
+    expect(fakeCommands.rgblightSaveConfig).toHaveBeenCalledWith('dev1')
+  })
+
+  it('saveLightingConfig(id, "rgbmatrix") calls rgbmatrixSaveConfig', async () => {
+    const fakeCommands = makeFakeCommands()
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await client.saveLightingConfig('dev1', 'rgbmatrix')
+    expect(fakeCommands.rgbmatrixSaveConfig).toHaveBeenCalledWith('dev1')
+  })
+
+  it('getLightingConfig error result propagates as throw', async () => {
+    const fakeCommands = makeFakeCommands({
+      rgbmatrixGetConfig: vi.fn().mockResolvedValue({ status: 'error', error: 'lighting unavailable' }),
+    })
+    const client = new RealXapClient(fakeCommands, silentEvents)
+    await expect(client.getLightingConfig('dev1', 'rgbmatrix')).rejects.toThrow('lighting unavailable')
   })
 })

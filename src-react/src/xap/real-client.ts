@@ -1,5 +1,5 @@
 import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap, LightingSub, LightingConfig } from './client'
-import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode, KeycodeTemplate } from './types'
+import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode, KeycodeTemplate, BacklightConfig, RgbLightConfig, RgbMatrixConfig } from './types'
 import type { Result, RemappingSetKeycodeArg, RemappingSetEncoderKeycodeArg, QmkJumpToBootloaderResponse, QmkReinitializeEepromResponse } from '@gen/xap-types'
 import { unwrap } from './result'
 
@@ -17,6 +17,15 @@ export interface XapCommands {
   xapSecureUnlock(id: string): Promise<Result<null, string>>
   qmkJumpToBootloader(id: string): Promise<Result<QmkJumpToBootloaderResponse, string>>
   qmkReinitializeEeprom(id: string): Promise<Result<QmkReinitializeEepromResponse, string>>
+  backlightGetConfig(id: string): Promise<Result<BacklightConfig, string>>
+  backlightSetConfig(id: string, arg: BacklightConfig): Promise<Result<null, string>>
+  backlightSaveConfig(id: string): Promise<Result<null, string>>
+  rgblightGetConfig(id: string): Promise<Result<RgbLightConfig, string>>
+  rgblightSetConfig(id: string, arg: RgbLightConfig): Promise<Result<null, string>>
+  rgblightSaveConfig(id: string): Promise<Result<null, string>>
+  rgbmatrixGetConfig(id: string): Promise<Result<RgbMatrixConfig, string>>
+  rgbmatrixSetConfig(id: string, arg: RgbMatrixConfig): Promise<Result<null, string>>
+  rgbmatrixSaveConfig(id: string): Promise<Result<null, string>>
 }
 
 // Injected event source — desktop adapter wraps Tauri listen; web adapter wraps wasm emit.
@@ -89,17 +98,22 @@ export class RealXapClient implements XapClient {
     unwrap(await this.commands.qmkReinitializeEeprom(id))
   }
 
-  // Lighting transport — real implementation deferred to a later plan.
-  async getLightingConfig(_id: string, _sub: LightingSub): Promise<LightingConfig> {
-    throw new Error('getLightingConfig: not yet implemented in real client')
+  async getLightingConfig(id: string, sub: LightingSub): Promise<LightingConfig> {
+    if (sub === 'backlight') return unwrap(await this.commands.backlightGetConfig(id))
+    if (sub === 'rgblight')  return unwrap(await this.commands.rgblightGetConfig(id))
+    return unwrap(await this.commands.rgbmatrixGetConfig(id))
   }
 
-  async setLightingConfig(_id: string, _sub: LightingSub, _config: LightingConfig): Promise<void> {
-    throw new Error('setLightingConfig: not yet implemented in real client')
+  async setLightingConfig(id: string, sub: LightingSub, config: LightingConfig): Promise<void> {
+    if (sub === 'backlight') { unwrap(await this.commands.backlightSetConfig(id, config as BacklightConfig)); return }
+    if (sub === 'rgblight')  { unwrap(await this.commands.rgblightSetConfig(id, config as RgbLightConfig)); return }
+    unwrap(await this.commands.rgbmatrixSetConfig(id, config as RgbMatrixConfig))
   }
 
-  async saveLightingConfig(_id: string, _sub: LightingSub): Promise<void> {
-    throw new Error('saveLightingConfig: not yet implemented in real client')
+  async saveLightingConfig(id: string, sub: LightingSub): Promise<void> {
+    if (sub === 'backlight') { unwrap(await this.commands.backlightSaveConfig(id)); return }
+    if (sub === 'rgblight')  { unwrap(await this.commands.rgblightSaveConfig(id)); return }
+    unwrap(await this.commands.rgbmatrixSaveConfig(id))
   }
 
   subscribe(handler: (e: XapEvent) => void): Unsubscribe {

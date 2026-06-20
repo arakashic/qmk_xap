@@ -33,4 +33,18 @@ describe('instrumentClient', () => {
     expect(typeof unsub).toBe('function')
     expect(sink.pushCall).not.toHaveBeenCalled()
   })
+
+  it('getLightingConfig records one timed entry in the sink', async () => {
+    const calls: unknown[] = []
+    const sink = {
+      pushCall: (l: string) => { calls.push(['push', l]); return 'lid1' },
+      resolveCall: (id: string, st: string, ms: unknown) => calls.push(['resolve', id, st, typeof ms]),
+    }
+    const wrapped = instrumentClient(new MockXapClient(), sink)
+    const [d] = await wrapped.listDevices()
+    await wrapped.getLightingConfig(d.id, 'rgbmatrix')
+    const pushEntry = calls.find((c) => Array.isArray(c) && c[0] === 'push' && /getLightingConfig/.test(c[1] as string))
+    expect(pushEntry).toBeTruthy()
+    expect(calls).toContainEqual(['resolve', 'lid1', 'ok', 'number'])
+  })
 })
