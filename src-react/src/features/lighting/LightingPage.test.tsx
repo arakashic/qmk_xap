@@ -123,3 +123,72 @@ describe('LightingPage — auto-apply and save', () => {
     })
   })
 })
+
+describe('LightingPage — dirty flag survives refetch', () => {
+  it('an applied-but-unsaved change stays dirty across a window-focus refetch', async () => {
+    const client = new MockXapClient()
+    const qc = makeQc()
+    useUiStore.getState().setActiveDevice('ugo_rev3_full')
+
+    render(<Wrapper client={client} qc={qc} />)
+
+    await screen.findByText('Per-key RGB')
+
+    // Make rgbmatrix dirty by toggling its switch off (enable 1 -> 0).
+    // Auto-apply writes the RAM value to the mock, so a refetch returns enable=0.
+    const switches = screen.getAllByRole('switch')
+    fireEvent.click(switches[2])
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/not saved to EEPROM/).length).toBeGreaterThan(0)
+    })
+
+    // Simulate a window-focus refetch — getLightingConfig returns the RAM-applied value.
+    await qc.refetchQueries({ queryKey: ['lighting', 'ugo_rev3_full', 'rgbmatrix'] })
+
+    // The dirty bit must survive: still "not saved", NOT silently flipped to "✓ saved".
+    await waitFor(() => {
+      expect(screen.getAllByText(/not saved to EEPROM/).length).toBeGreaterThan(0)
+    })
+    // The rgbmatrix card must not show the saved indicator while dirty.
+    // (backlight + rgblight are still clean and show "✓ saved"; rgbmatrix must not.)
+    expect(screen.getAllByText(/✓\s*saved/).length).toBe(2)
+  })
+
+  it('Save clears dirty to ✓ saved without reverting the applied value', async () => {
+    const client = new MockXapClient()
+    const qc = makeQc()
+    useUiStore.getState().setActiveDevice('ugo_rev3_full')
+
+    render(<Wrapper client={client} qc={qc} />)
+
+    await screen.findByText('Per-key RGB')
+
+    // Toggle rgbmatrix off (enable 1 -> 0), making it dirty.
+    const switches = screen.getAllByRole('switch')
+    expect(switches[2]).toBeChecked()
+    fireEvent.click(switches[2])
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/not saved to EEPROM/).length).toBeGreaterThan(0)
+    })
+
+    // The applied (edited) switch state is reflected immediately.
+    expect(screen.getAllByRole('switch')[2]).not.toBeChecked()
+
+    // Save the rgbmatrix card.
+    const saveButtons = screen.getAllByRole('button', { name: /save/i })
+    fireEvent.click(saveButtons[0])
+
+    // Dirty clears; all three cards now show "✓ saved".
+    await waitFor(() => {
+      expect(screen.queryAllByText(/not saved to EEPROM/).length).toBe(0)
+      expect(screen.getAllByText(/✓\s*saved/).length).toBe(3)
+    })
+
+    // The edited value must NOT have reverted — switch is still off after save + invalidation.
+    await waitFor(() => {
+      expect(screen.getAllByRole('switch')[2]).not.toBeChecked()
+    })
+  })
+})

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { LightingSub, LightingConfig } from '@/xap/client'
 import { useXapClient } from './client-context'
 
@@ -21,7 +21,9 @@ export const useSetLightingConfig = (id: string, sub: LightingSub) => {
 
 export const useSaveLightingConfig = (id: string, sub: LightingSub) => {
   const c = useXapClient()
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: () => c.saveLightingConfig(id, sub),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lighting', id, sub] }),
   })
 }
