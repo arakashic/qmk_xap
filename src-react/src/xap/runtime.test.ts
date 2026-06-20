@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { listen } from '@tauri-apps/api/event'
 
 // Mock @tauri-apps/api/event so importing listen doesn't fail in jsdom
 vi.mock('@tauri-apps/api/event', () => ({
@@ -25,5 +26,15 @@ describe('selectClient', () => {
   it('returns MockXapClient when __TAURI_INTERNALS__ is absent', () => {
     const client = selectClient()
     expect(client).toBeInstanceOf(MockXapClient)
+  })
+
+  // Regression: the desktop adapter must subscribe on the SAME channel the Rust
+  // backend emits on (`handle.emit("xap", ...)`). It previously listened on the
+  // stale tauri-specta name 'xap-event', so no broadcast ever reached the UI
+  // (caught only by the Plan 6 end-to-end sim run, not the mocked unit tests).
+  it('subscribes Tauri broadcasts on the "xap" channel (matches backend emit)', () => {
+    ;(window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__'] = {}
+    selectClient().subscribe(() => {})
+    expect(vi.mocked(listen)).toHaveBeenCalledWith('xap', expect.any(Function))
   })
 })

@@ -11,7 +11,7 @@ function isTauri(): boolean {
 
 const tauriEvents: XapEventSource = {
   on(handler) {
-    const p = listen<XapEvent>('xap-event', (e) => handler(e.payload))
+    const p = listen<XapEvent>('xap', (e) => handler(e.payload))
     return () => { void p.then((un) => un()) }
   },
 }
