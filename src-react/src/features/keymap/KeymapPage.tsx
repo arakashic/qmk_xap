@@ -176,32 +176,27 @@ export function KeymapPage() {
   const layerCount = keymap.keys.length
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
       <LayerBar layerCount={layerCount} />
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          padding: 12,
-        }}
-      >
-        <Board
-          keymap={keymap}
+      {/* Keymap region: board + encoder rail scroll together, independently of the picker. */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
+          <Board
+            keymap={keymap}
+            layer={selectedLayer}
+            onSelectKey={handleSelectKey}
+            selectedTarget={picker.target}
+            pendingFill={picker.pending}
+          />
+        </div>
+        <EncoderRail
           layer={selectedLayer}
-          onSelectKey={handleSelectKey}
+          encoders={encoders?.[selectedLayer] ?? []}
           selectedTarget={picker.target}
           pendingFill={picker.pending}
+          onSelectSlot={handleSelectSlot}
         />
       </div>
-      <EncoderRail
-        layer={selectedLayer}
-        encoders={encoders?.[selectedLayer] ?? []}
-        selectedTarget={picker.target}
-        pendingFill={picker.pending}
-        onSelectSlot={handleSelectSlot}
-      />
       <PickerDock layerCount={layerCount} onPick={handlePick} />
     </div>
   )

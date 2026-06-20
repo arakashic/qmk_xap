@@ -248,6 +248,8 @@ export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) 
           style={{
             padding: '0 12px 12px',
             borderTop: '1px solid hsl(var(--border))',
+            maxHeight: '45vh',
+            overflowY: 'auto',
           }}
         >
           <div style={{ paddingTop: 10 }}>

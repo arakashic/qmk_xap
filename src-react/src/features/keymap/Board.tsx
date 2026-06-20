@@ -22,8 +22,9 @@ function pendingPreviewCode(fill: PendingFill): KeyCode | null {
   return null
 }
 
-// One key unit in pixels. Matches the 34px key in the mockup at 1u.
-const KEY_UNIT = 38  // px per QMK layout unit
+// One key unit in pixels. Sized so a 1u cap (~60px) fits the KeyCap legend
+// fonts without clipping — comparable to the old app's key size.
+const KEY_UNIT = 64  // px per QMK layout unit
 
 interface BoardProps {
   keymap: MappedKeymap
