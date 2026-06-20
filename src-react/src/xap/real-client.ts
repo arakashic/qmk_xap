@@ -1,4 +1,4 @@
-import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from './client'
+import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap, LightingSub, LightingConfig } from './client'
 import type { XapDeviceState, MappedKeymap, XapConstants, XapEvent, KeyCode, KeycodeTemplate } from './types'
 import type { Result, RemappingSetKeycodeArg, RemappingSetEncoderKeycodeArg, QmkJumpToBootloaderResponse, QmkReinitializeEepromResponse } from '@gen/xap-types'
 import { unwrap } from './result'
@@ -87,6 +87,19 @@ export class RealXapClient implements XapClient {
 
   async reinitializeEeprom(id: string): Promise<void> {
     unwrap(await this.commands.qmkReinitializeEeprom(id))
+  }
+
+  // Lighting transport — real implementation deferred to a later plan.
+  async getLightingConfig(_id: string, _sub: LightingSub): Promise<LightingConfig> {
+    throw new Error('getLightingConfig: not yet implemented in real client')
+  }
+
+  async setLightingConfig(_id: string, _sub: LightingSub, _config: LightingConfig): Promise<void> {
+    throw new Error('setLightingConfig: not yet implemented in real client')
+  }
+
+  async saveLightingConfig(_id: string, _sub: LightingSub): Promise<void> {
+    throw new Error('saveLightingConfig: not yet implemented in real client')
   }
 
   subscribe(handler: (e: XapEvent) => void): Unsubscribe {

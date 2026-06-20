@@ -1,4 +1,4 @@
-import type { XapClient, Unsubscribe, EncoderKeymap, DeviceSummary } from './client'
+import type { XapClient, Unsubscribe, EncoderKeymap, DeviceSummary, LightingSub, LightingConfig } from './client'
 import type { XapDeviceState, MappedKeymap, XapEvent, XapConstants, KeyCode } from './types'
 
 export interface DevtoolsSink {
@@ -79,6 +79,18 @@ export function instrumentClient(client: XapClient, sink: DevtoolsSink): XapClie
 
     reinitializeEeprom(id: string): Promise<void> {
       return timed(sink, 'reinitializeEeprom', () => client.reinitializeEeprom(id))
+    },
+
+    getLightingConfig(id: string, sub: LightingSub): Promise<LightingConfig> {
+      return timed(sink, `getLightingConfig · ${sub}`, () => client.getLightingConfig(id, sub))
+    },
+
+    setLightingConfig(id: string, sub: LightingSub, config: LightingConfig): Promise<void> {
+      return timed(sink, `setLightingConfig · ${sub}`, () => client.setLightingConfig(id, sub, config))
+    },
+
+    saveLightingConfig(id: string, sub: LightingSub): Promise<void> {
+      return timed(sink, `saveLightingConfig · ${sub}`, () => client.saveLightingConfig(id, sub))
     },
 
     subscribe(handler: (e: XapEvent) => void): Unsubscribe {

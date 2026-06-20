@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { MockXapClient } from './client'
-import type { XapEvent } from '../types'
+import type { XapEvent, RgbMatrixConfig } from '../types'
 import { ugoState } from './fixtures'
 import { ugoConstants } from './constants'
 import { ugoEncoders } from './encoders'
@@ -86,5 +86,23 @@ describe('MockXapClient', () => {
     // row=3, col=3 is the KC_A position in the ugo fixture
     await c.remapKey(d.id, { layer: 0, row: 3, column: 3 }, { key: 'KC_X', label: 'X' })
     expect(events.some((e) => e.kind === 'LogReceived')).toBe(true)
+  })
+  it('getLightingConfig returns the rgbmatrix config; set mutates it; save resolves', async () => {
+    const c = new MockXapClient()
+    const before = await c.getLightingConfig('ugo_rev3_full', 'rgbmatrix') as RgbMatrixConfig
+    expect(before.mode).toBe(2)
+    await c.setLightingConfig('ugo_rev3_full', 'rgbmatrix', { ...before, hue: 90, val: 200 })
+    const after = await c.getLightingConfig('ugo_rev3_full', 'rgbmatrix') as RgbMatrixConfig
+    expect(after.hue).toBe(90); expect(after.val).toBe(200)
+    await expect(c.saveLightingConfig('ugo_rev3_full', 'rgbmatrix')).resolves.toBeUndefined()
+  })
+  it('ugo reports all three lighting subsystems; mini reports none', async () => {
+    const c = new MockXapClient()
+    const ugo = await c.getDeviceState('ugo_rev3_full')
+    expect(ugo.info?.lighting?.rgbmatrix).toBeTruthy()
+    expect(ugo.info?.lighting?.rgblight).toBeTruthy()
+    expect(ugo.info?.lighting?.backlight).toBeTruthy()
+    const mini = await c.getDeviceState('mini40_locked')
+    expect(mini.info?.lighting).toBeNull()
   })
 })

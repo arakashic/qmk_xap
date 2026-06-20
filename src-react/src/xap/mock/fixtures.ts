@@ -4,7 +4,12 @@ import type {
   MappedKeymapKey,
   KeyCode,
   LayoutEntry,
+  LightingInfo,
+  BacklightConfig,
+  RgbLightConfig,
+  RgbMatrixConfig,
 } from '../types'
+import type { LightingSub, LightingConfig } from '../client'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -153,6 +158,45 @@ function sparseLayer1(): (MappedKeymapKey | null)[][] {
 // Exported fixtures
 // ---------------------------------------------------------------------------
 
+const ugoLightingInfo: LightingInfo = {
+  rgbmatrix: {
+    effects: [
+      { code: 1, key: 'RGB_MATRIX_SOLID_COLOR', group: 'rgb_matrix', label: 'Solid color' },
+      { code: 2, key: 'RGB_MATRIX_BREATHING', group: 'rgb_matrix', label: 'Breathing' },
+      { code: 5, key: 'RGB_MATRIX_CYCLE_ALL', group: 'rgb_matrix', label: 'Cycle all' },
+    ],
+    get_config_enabled: true,
+    set_config_enabled: true,
+    save_config_enabled: true,
+  },
+  rgblight: {
+    effects: [
+      { code: 0, key: 'RGBLIGHT_MODE_STATIC', group: 'rgblight', label: 'Static' },
+      { code: 9, key: 'RGBLIGHT_MODE_RAINBOW_SWIRL', group: 'rgblight', label: 'Rainbow swirl' },
+      { code: 1, key: 'RGBLIGHT_MODE_BREATHING', group: 'rgblight', label: 'Breathing' },
+    ],
+    get_config_enabled: true,
+    set_config_enabled: true,
+    save_config_enabled: true,
+  },
+  backlight: {
+    effects: [
+      { code: 0, key: 'BACKLIGHT_OFF', group: 'backlight', label: 'Off' },
+      { code: 1, key: 'BACKLIGHT_ON', group: 'backlight', label: 'On' },
+      { code: 2, key: 'BACKLIGHT_BREATHING', group: 'backlight', label: 'Breathing' },
+    ],
+    get_config_enabled: true,
+    set_config_enabled: true,
+    save_config_enabled: true,
+  },
+}
+
+export const ugoLighting: Record<LightingSub, LightingConfig> = {
+  rgbmatrix: { enable: 1, mode: 2, hue: 0, sat: 255, val: 150, speed: 128, flags: 1 } satisfies RgbMatrixConfig,
+  rgblight:  { enable: 1, mode: 9, hue: 140, sat: 255, val: 200, speed: 160 } satisfies RgbLightConfig,
+  backlight: { enable: 0, mode: 2, val: 120 } satisfies BacklightConfig,
+}
+
 export const ugoState: XapDeviceState = {
   id: 'ugo_rev3_full',
   info: {
@@ -177,7 +221,7 @@ export const ugoState: XapDeviceState = {
       get_encoder_keycode_enabled: true,
     },
     remap: null,
-    lighting: null,
+    lighting: ugoLightingInfo,
   },
   config: {
     layouts: {

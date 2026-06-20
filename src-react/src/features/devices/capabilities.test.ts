@@ -9,8 +9,14 @@ describe('capabilitiesOf', () => {
     expect(keymap?.present).toBe(true)
   })
 
-  it('marks Lighting absent when info.lighting is null', () => {
+  it('marks Lighting present when info.lighting is non-null (ugo)', () => {
     const caps = capabilitiesOf(ugoState)
+    const lighting = caps.find((c) => c.label === 'Lighting')
+    expect(lighting?.present).toBe(true)
+  })
+
+  it('marks Lighting absent when info.lighting is null (mini)', () => {
+    const caps = capabilitiesOf(miniState)
     const lighting = caps.find((c) => c.label === 'Lighting')
     expect(lighting?.present).toBe(false)
   })

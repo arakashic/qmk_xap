@@ -1,10 +1,10 @@
-import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap } from '../client'
+import type { XapClient, DeviceSummary, Unsubscribe, EncoderKeymap, LightingSub, LightingConfig } from '../client'
 import type { XapDeviceState, MappedKeymap, XapEvent, XapConstants, KeyCode } from '../types'
-import { ugoState, ugoKeymap, miniState } from './fixtures'
+import { ugoState, ugoKeymap, miniState, ugoLighting } from './fixtures'
 import { ugoConstants } from './constants'
 import { ugoEncoders } from './encoders'
 
-type Entry = { state: XapDeviceState; keymap: MappedKeymap; encoders: EncoderKeymap }
+type Entry = { state: XapDeviceState; keymap: MappedKeymap; encoders: EncoderKeymap; lighting: Record<LightingSub, LightingConfig> }
 
 export class MockXapClient implements XapClient {
   private devices: Map<string, Entry>
@@ -23,9 +23,10 @@ export class MockXapClient implements XapClient {
     const deepClone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj, bigintReplacer), bigintReviver)
 
     const cloneEncoders = (): EncoderKeymap => JSON.parse(JSON.stringify(ugoEncoders))
+    const cloneLighting = (): Record<LightingSub, LightingConfig> => JSON.parse(JSON.stringify(ugoLighting))
     this.devices = new Map([
-      [ugoState.id, { state: deepClone(ugoState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders() }],
-      [miniState.id, { state: deepClone(miniState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders() }],
+      [ugoState.id, { state: deepClone(ugoState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders(), lighting: cloneLighting() }],
+      [miniState.id, { state: deepClone(miniState), keymap: deepClone(ugoKeymap), encoders: cloneEncoders(), lighting: cloneLighting() }],
     ])
   }
 
@@ -114,6 +115,25 @@ export class MockXapClient implements XapClient {
   async reinitializeEeprom(id: string): Promise<void> {
     const e = this.devices.get(id)
     if (!e) throw new Error(`unknown device ${id}`)
+  }
+
+  async getLightingConfig(id: string, sub: LightingSub): Promise<LightingConfig> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    return e.lighting[sub]
+  }
+
+  async setLightingConfig(id: string, sub: LightingSub, config: LightingConfig): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    e.lighting[sub] = config
+    this.emit({ kind: 'LogReceived', data: { id, log: `light ${sub} -> mode ${'mode' in config ? config.mode : 'n/a'}` } })
+  }
+
+  async saveLightingConfig(id: string, sub: LightingSub): Promise<void> {
+    const e = this.devices.get(id)
+    if (!e) throw new Error(`unknown device ${id}`)
+    this.emit({ kind: 'LogReceived', data: { id, log: `light ${sub} saved` } })
   }
 
   subscribe(h: (e: XapEvent) => void): Unsubscribe {

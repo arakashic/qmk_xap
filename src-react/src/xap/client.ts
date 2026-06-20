@@ -1,4 +1,7 @@
-import type { XapDeviceState, MappedKeymap, XapSecureStatus, XapEvent, XapConstants, KeyCode } from './types'
+import type { XapDeviceState, MappedKeymap, XapSecureStatus, XapEvent, XapConstants, KeyCode, BacklightConfig, RgbLightConfig, RgbMatrixConfig } from './types'
+
+export type LightingSub = 'backlight' | 'rgblight' | 'rgbmatrix'
+export type LightingConfig = BacklightConfig | RgbLightConfig | RgbMatrixConfig
 
 export interface DeviceSummary {
   id: string
@@ -28,6 +31,8 @@ export interface XapClient {
   // Mock: resolved no-ops; real effects deferred to Plan 6.
   jumpToBootloader(id: string): Promise<void>
   reinitializeEeprom(id: string): Promise<void>
-  // later plans: lighting get/set/save
+  getLightingConfig(id: string, sub: LightingSub): Promise<LightingConfig>
+  setLightingConfig(id: string, sub: LightingSub, config: LightingConfig): Promise<void>
+  saveLightingConfig(id: string, sub: LightingSub): Promise<void>
   subscribe(handler: (e: XapEvent) => void): Unsubscribe
 }
