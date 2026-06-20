@@ -148,7 +148,10 @@ describe('LightingCard dirty/saved state', () => {
       />
     )
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
-    expect(screen.getByText(/not saved to EEPROM/i)).toBeInTheDocument()
+    // The pill carries the required ● prefix before the label
+    const pill = screen.getByText(/not saved to EEPROM/i)
+    expect(pill).toBeInTheDocument()
+    expect(pill.textContent).toMatch(/●\s*not saved to EEPROM/)
   })
 
   it('when dirty: clicking Save calls onSave', () => {
@@ -178,10 +181,11 @@ describe('LightingCard dirty/saved state', () => {
         onSave={vi.fn()}
       />
     )
-    expect(screen.getByText(/saved/i)).toBeInTheDocument()
-    // The save button should not appear when not dirty
-    // (the "saved" text above is the green checkmark indicator, not a button)
-    const saveButton = screen.queryByRole('button', { name: /save/i })
-    expect(saveButton).not.toBeInTheDocument()
+    // Exact clean-state indicator, with checkmark prefix
+    expect(screen.getByText(/✓\s*saved/)).toBeInTheDocument()
+    // The dirty pill must NOT be present in the clean state
+    expect(screen.queryByText(/not saved to EEPROM/i)).not.toBeInTheDocument()
+    // No Save button in the clean state
+    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument()
   })
 })
