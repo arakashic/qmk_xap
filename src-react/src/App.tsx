@@ -5,6 +5,7 @@ import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
 import { DevtoolsDock } from '@/features/devtools/DevtoolsDock'
 import { useDevtoolsSubscription } from '@/features/devtools/useDevtoolsSubscription'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
+import { LightingPage } from '@/features/lighting/LightingPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
 import { useUiStore } from '@/store/ui'
 import { useDevtoolsStore } from '@/store/devtools'
@@ -55,19 +56,7 @@ export default function App() {
       >
         {showChrome && <TopBar device={activeDevice} />}
         {route === 'keymap' && <KeymapPage />}
-        {route === 'lighting' && (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'hsl(var(--muted-foreground))',
-            }}
-          >
-            Lighting — coming soon
-          </div>
-        )}
+        {route === 'lighting' && <LightingPage />}
         {route === 'devices' && <DevicesPage />}
         {showChrome && dockOpen && <DevtoolsDock />}
         {showChrome && <DevtoolsStrip />}
