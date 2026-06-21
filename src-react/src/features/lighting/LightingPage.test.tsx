@@ -54,6 +54,25 @@ describe('LightingPage — mini (no lighting)', () => {
   })
 })
 
+describe('LightingPage — present-but-all-null lighting (real firmware shape)', () => {
+  it('shows the empty message when info.lighting is an object with every subsystem null', async () => {
+    // Real firmware returns info.lighting as a populated object whose members
+    // are all null for a board with no lighting (not a plain null like the mock).
+    const base = new MockXapClient()
+    const full = await base.getDeviceState('ugo_rev3_full')
+    const state = { ...full, info: { ...full.info!, lighting: { backlight: null, rgblight: null, rgbmatrix: null } } }
+    const client = { getDeviceState: async () => state } as unknown as MockXapClient
+    const qc = makeQc()
+    useUiStore.getState().setActiveDevice('ugo_rev3_full')
+
+    render(<Wrapper client={client} qc={qc} />)
+
+    await screen.findByText('This device reports no lighting subsystems.')
+    expect(screen.queryByText('Per-key RGB')).toBeNull()
+    expect(screen.queryByText('Backlight')).toBeNull()
+  })
+})
+
 describe('LightingPage — auto-apply and save', () => {
   it('toggling the Per-key RGB enable switch calls setLightingConfig (auto-apply)', async () => {
     const client = new MockXapClient()
