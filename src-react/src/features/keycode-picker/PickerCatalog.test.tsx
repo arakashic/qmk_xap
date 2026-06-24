@@ -1,9 +1,27 @@
 import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
 import { PickerCatalog } from './PickerCatalog'
 import { ugoConstants } from '@/xap/mock/constants'
 
 const noop = () => {}
 
+const tabs = ugoConstants.keycode_view.tabs
+const basicTabId = tabs.find((t) => t.subgroups.some((s) => s.render_mode === 'ansi'))!.id
+
+// Task-4 integration tests (verbatim from brief)
+it('Basic tab with no query renders the physical layout (positioned keys), not flat rows', () => {
+  render(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="" onPick={() => {}} onHover={() => {}} />)
+  // physical layout renders matched keys with the layout-key testid
+  expect(screen.getAllByTestId('layout-key').length).toBeGreaterThan(20)
+})
+
+it('Basic tab with a query renders the flat filtered grid (no positioned canvas)', () => {
+  render(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="esc" onPick={() => {}} onHover={() => {}} />)
+  expect(screen.queryAllByTestId('layout-key')).toHaveLength(0)
+  expect(screen.getByText('Esc')).toBeInTheDocument()
+})
+
+// Pre-existing tests (kept)
 describe('PickerCatalog', () => {
   it('basic tab (render_mode:ansi) renders ANSI keys', () => {
     render(
@@ -16,8 +34,8 @@ describe('PickerCatalog', () => {
         onHover={noop}
       />,
     )
-    // basic tab has letters A-Z in the ANSI layout
-    expect(screen.getAllByRole('button').length).toBeGreaterThan(10)
+    // physical layout renders buttons with layout-key testid
+    expect(screen.getAllByTestId('layout-key').length).toBeGreaterThan(10)
     // Tab chips are no longer rendered by PickerCatalog — owned by PickerDock
     expect(screen.queryByText('Basic')).toBeNull()
     expect(screen.queryByText('Layer')).toBeNull()

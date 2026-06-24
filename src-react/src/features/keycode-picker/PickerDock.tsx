@@ -7,6 +7,7 @@ import { canTabFill } from './templateFill'
 import { PickerCatalog } from './PickerCatalog'
 import { DetailsStrip } from './DetailsStrip'
 import { BuilderChip } from './BuilderChip'
+import { LayoutSwitcher } from './LayoutSwitcher'
 
 interface PickerDockProps {
   layerCount: number
@@ -45,6 +46,7 @@ export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) 
 
   const tabs = constants?.keycode_view?.tabs ?? []
   const expanded = dockOpen || dockPinned
+  const isBasicTab = (tabs.find((t) => t.id === activeTab)?.subgroups ?? []).some((sg) => sg.render_mode === 'ansi')
 
   const borderColor = pending ? '#d69e2e' : 'hsl(var(--border))'
 
@@ -188,6 +190,7 @@ export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) 
 
         {/* Search input + pin */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isBasicTab && <LayoutSwitcher />}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span
               style={{

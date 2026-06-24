@@ -3,35 +3,9 @@ import type { KeycodeViewTab, KeyCode } from '@/xap/types'
 import { modName } from '@/features/keymap/legend'
 import { filterCodes } from './fuzzy'
 import { PickerKey } from './PickerKey'
-
-// ANSI rows for render_mode:'ansi' layout
-// The codes list is reordered to rows for display
-const ANSI_ROW_KEYS = [
-  ['KC_ESC','KC_1','KC_2','KC_3','KC_4','KC_5','KC_6','KC_7','KC_8','KC_9','KC_0','KC_MINS','KC_EQL','KC_BSPC'],
-  ['KC_TAB','KC_Q','KC_W','KC_E','KC_R','KC_T','KC_Y','KC_U','KC_I','KC_O','KC_P','KC_LBRC','KC_RBRC','KC_BSLS'],
-  ['KC_CAPS','KC_A','KC_S','KC_D','KC_F','KC_G','KC_H','KC_J','KC_K','KC_L','KC_SCLN','KC_QUOT','KC_ENTER'],
-  ['KC_LSFT','KC_Z','KC_X','KC_C','KC_V','KC_B','KC_N','KC_M','KC_COMM','KC_DOT','KC_SLSH','KC_RSFT'],
-  ['KC_LCTL','KC_LGUI','KC_LALT','KC_SPACE','KC_RALT','KC_RGUI','KC_RCTL'],
-]
-
-function buildAnsiRows(codes: KeyCode[]): KeyCode[][] {
-  // Group codes by key, then reorder per ANSI rows
-  const byKey = new Map(codes.map((c) => [c.key, c]))
-  const rows: KeyCode[][] = []
-  for (const rowKeys of ANSI_ROW_KEYS) {
-    const row: KeyCode[] = []
-    for (const key of rowKeys) {
-      const c = byKey.get(key)
-      if (c) row.push(c)
-    }
-    if (row.length > 0) rows.push(row)
-  }
-  // Remaining codes not matched by ANSI rows fall into an extra row
-  const usedKeys = new Set(ANSI_ROW_KEYS.flat())
-  const remaining = codes.filter((c) => !usedKeys.has(c.key))
-  if (remaining.length > 0) rows.push(remaining)
-  return rows
-}
+import { BasicKeyboardLayout } from './BasicKeyboardLayout'
+import { getLayout } from './layouts/index'
+import { usePrefsStore } from '@/store/prefs'
 
 function expandLayerTemplate(kind: string, layerCount: number): KeyCode[] {
   return Array.from({ length: layerCount }, (_, i) => {
@@ -157,6 +131,7 @@ export function PickerCatalog({
   onPick,
   onHover,
 }: PickerCatalogProps) {
+  const basicLayout = usePrefsStore((s) => s.basicLayout)
   const tab = tabs.find((t) => t.id === activeTab) ?? tabs[0]
   if (!tab) return null
 
@@ -167,9 +142,25 @@ export function PickerCatalog({
         const tmpl = sg.template
 
         if (sg.render_mode === 'ansi') {
-          // ANSI row layout
-          const filtered = query ? filterCodes(query, sg.codes) : sg.codes
-          const rows = query ? [filtered] : buildAnsiRows(sg.codes)
+          if (query) {
+            // Non-empty query: flat filtered grid
+            const filtered = filterCodes(query, sg.codes)
+            return (
+              <div key={sg.id}>
+                {sg.label && (
+                  <div style={{ fontSize: 8, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '6px 0 4px' }}>
+                    {sg.label}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  {filtered.map((code) => (
+                    <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
+                  ))}
+                </div>
+              </div>
+            )
+          }
+          // Empty query: physical layout
           return (
             <div key={sg.id}>
               {sg.label && (
@@ -177,15 +168,12 @@ export function PickerCatalog({
                   {sg.label}
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
-                {rows.map((row, ri) => (
-                  <div key={ri} style={{ display: 'flex', gap: 3 }}>
-                    {row.map((code) => (
-                      <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <BasicKeyboardLayout
+                codes={sg.codes}
+                layout={getLayout(basicLayout)}
+                onPick={onPick}
+                onHover={onHover}
+              />
             </div>
           )
         }
