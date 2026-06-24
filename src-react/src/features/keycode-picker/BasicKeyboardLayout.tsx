@@ -44,8 +44,9 @@ export function BasicKeyboardLayout({ codes, layout, onPick, onHover }: BasicKey
                 data-testid="layout-key"
                 aria-label={code.key}
                 onClick={() => onPick(code)}
-                onMouseEnter={() => onHover(code)}
-                onMouseLeave={() => onHover(null)}
+                // hover/focus outline set inline (mouse via onMouseEnter/Leave, keyboard via onFocus/Blur)
+                onMouseEnter={(e) => { onHover(code); e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
+                onMouseLeave={(e) => { onHover(null); e.currentTarget.style.outline = 'none' }}
                 style={{
                   ...posStyle,
                   padding: 0,
@@ -53,10 +54,9 @@ export function BasicKeyboardLayout({ codes, layout, onPick, onHover }: BasicKey
                   border: 'none',
                   cursor: 'pointer',
                   borderRadius: 'var(--key-radius)',
-                  // hover/focus outline applied via CSS class below
                 }}
                 onFocus={(e) => { e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
-                onBlur={(e) => { e.currentTarget.style.outline = '' }}
+                onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
               >
                 <KeyCap code={code} width={w} height={h} />
               </button>
