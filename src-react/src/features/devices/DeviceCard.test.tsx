@@ -41,7 +41,7 @@ describe('DeviceCard — INACTIVE card', () => {
 
     expect(screen.getByRole('button', { name: /firmware config/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /set active/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /locked, click to unlock|unlocked, click to lock|unlocking/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^(locked|unlocked|unlocking)/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /bootloader/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /eeprom/i })).toBeNull()
   })
@@ -55,7 +55,7 @@ describe('DeviceCard — ACTIVE card, Locked', () => {
     const qc = makeQc()
     renderCard(lockedUgo, true, client, qc)
 
-    expect(screen.getByRole('button', { name: /locked, click to unlock/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^locked$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /bootloader/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /eeprom/i })).toBeDisabled()
   })
@@ -68,7 +68,7 @@ describe('DeviceCard — ACTIVE card, Unlocked (ugoState: both flags true)', () 
     const qc = makeQc()
     renderCard(ugoState, true, client, qc)
 
-    expect(screen.getByRole('button', { name: /unlocked, click to lock/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^unlocked$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /bootloader/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /eeprom/i })).not.toBeDisabled()
   })

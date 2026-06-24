@@ -3,7 +3,13 @@ import { legendOf, modName } from './legend'
 
 describe('legendOf', () => {
   it('KC_TRNS -> trns', () => expect(legendOf({ key: 'KC_TRNS' }).kind).toBe('trns'))
+  // Real firmware decodes the transparent keycode to its canonical name with
+  // KC_TRNS as an alias (and u16 0x0001); all must render as trns.
+  it('KC_TRANSPARENT (real canonical name) -> trns', () =>
+    expect(legendOf({ key: 'KC_TRANSPARENT', label: 'Transparent', code: 1, aliases: ['KC_TRNS'] }).kind).toBe('trns'))
+  it('transparent by u16 0x0001 -> trns', () => expect(legendOf({ key: '0x0001', code: 0x0001 }).kind).toBe('trns'))
   it('KC_NO -> no', () => expect(legendOf({ key: 'KC_NO' }).kind).toBe('no'))
+  it('no-op by u16 0x0000 -> no', () => expect(legendOf({ key: '0x0000', code: 0x0000 }).kind).toBe('no'))
   it('basic letter', () => expect(legendOf({ key: 'KC_A', label: 'A' })).toMatchObject({ kind: 'basic', label: 'A' }))
   it('LT split', () =>
     expect(legendOf({ key: 'LT(2,KC_SPC)', label: 'Spc', template: { kind: 'LayerTap', layer: 2, tap_kc: 0 } }))

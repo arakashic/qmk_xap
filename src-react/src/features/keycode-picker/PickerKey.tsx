@@ -1,9 +1,10 @@
 import type { KeyCode } from '@/xap/types'
 import { KeyCap } from '@/features/keymap/KeyCap'
 
-// Picker cap size — slightly smaller than the legend specimen (58px)
-const PICKER_W = 42
-const PICKER_H = 34
+// Picker cap size — large enough for the KeyCap legend fonts (tuned for ~58px
+// caps) so split/descriptor legends don't clip. Was 42x34 (clipped).
+const PICKER_W = 54
+const PICKER_H = 48
 
 interface PickerKeyProps {
   code: KeyCode

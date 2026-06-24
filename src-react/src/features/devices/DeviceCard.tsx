@@ -84,7 +84,7 @@ export function DeviceCard({ state, isActive, onSetActive }: DeviceCardProps) {
   const jumpToBootloader = useJumpToBootloader(state.id)
   const reinitializeEeprom = useReinitializeEeprom(state.id)
 
-  const { label: secureLabel, disabled: secureDisabled } = secureToggleLabel(state.secure_status)
+  const { label: secureLabel, disabled: secureDisabled, title: secureTitle, color: secureColor } = secureToggleLabel(state.secure_status)
   const isUnlocked = state.secure_status === 'Unlocked'
 
   function handleSecureToggle() {
@@ -197,7 +197,13 @@ export function DeviceCard({ state, isActive, onSetActive }: DeviceCardProps) {
               variant="outline"
               disabled={secureDisabled}
               onClick={handleSecureToggle}
+              title={secureTitle}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: secureColor, color: secureColor }}
             >
+              <span
+                aria-hidden
+                style={{ width: 7, height: 7, borderRadius: '50%', background: secureColor, boxShadow: `0 0 4px ${secureColor}`, flexShrink: 0 }}
+              />
               {secureLabel}
             </Button>
           )}

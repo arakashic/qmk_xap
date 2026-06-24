@@ -60,6 +60,16 @@ export function FirmwareConfigModal({ state }: FirmwareConfigModalProps) {
           }}
         >
           <DialogTitle style={{ fontSize: 14 }}>Firmware config</DialogTitle>
+          <DialogClose asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Close"
+              style={{ position: 'absolute', top: 8, right: 8, height: 28, padding: '0 8px', fontSize: 14 }}
+            >
+              ✕
+            </Button>
+          </DialogClose>
         </DialogHeader>
 
         {/* Filter + copy row */}
@@ -81,11 +91,6 @@ export function FirmwareConfigModal({ state }: FirmwareConfigModalProps) {
           <Button variant="outline" size="sm" onClick={handleCopy} style={{ fontSize: 12, flexShrink: 0 }}>
             {copied ? 'Copied!' : 'Copy JSON'}
           </Button>
-          <DialogClose asChild>
-            <Button variant="ghost" size="sm" style={{ fontSize: 12, padding: '0 8px' }}>
-              ✕
-            </Button>
-          </DialogClose>
         </div>
 
         {/* Tree / raw fallback */}

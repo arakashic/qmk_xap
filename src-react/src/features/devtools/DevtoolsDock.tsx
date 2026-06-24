@@ -47,6 +47,29 @@ export function DevtoolsDock() {
           flexShrink: 0,
         }}
       >
+        {/* Collapse toggle — left-anchored so it stays put when the strip
+            (▼ devtools, also far-left) expands into this dock. */}
+        <button
+          onClick={() => setDockOpen(false)}
+          title="Collapse"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            marginRight: 2,
+            borderRadius: 4,
+            border: 'none',
+            background: 'transparent',
+            color: '#718096',
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          ▲ devtools
+        </button>
+
         {/* Filter chips */}
         {ALL_KINDS.map((kind) => {
           const isHidden = hidden.includes(kind)
@@ -115,22 +138,6 @@ export function DevtoolsDock() {
           }}
         >
           clear
-        </button>
-        <button
-          onClick={() => setDockOpen(false)}
-          title="Collapse"
-          style={{
-            padding: '2px 6px',
-            borderRadius: 4,
-            border: '1px solid #4a5568',
-            background: 'transparent',
-            color: '#718096',
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: 10,
-            cursor: 'pointer',
-          }}
-        >
-          ▼
         </button>
       </div>
 

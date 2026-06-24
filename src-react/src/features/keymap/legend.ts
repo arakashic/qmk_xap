@@ -63,10 +63,21 @@ function modNameShort(mod_mask: number): string {
   return names.length > 0 ? names.join('+') : `0x${mod_mask.toString(16).toUpperCase()}`
 }
 
+// Transparent / no-op keys: the real catalog decodes these to their canonical
+// names (KC_TRANSPARENT / KC_NO) with KC_TRNS as an alias, while the mock used
+// the KC_TRNS short form. Match all representations (name, alias, or u16 0x0001/
+// 0x0000) so the striped ▽ / dotted styles render against real firmware too.
+function isTransparent(code: KeyCode): boolean {
+  return code.key === 'KC_TRNS' || code.key === 'KC_TRANSPARENT' || (code.aliases?.includes('KC_TRNS') ?? false) || code.code === 0x0001
+}
+function isNoOp(code: KeyCode): boolean {
+  return code.key === 'KC_NO' || (code.aliases?.includes('KC_NO') ?? false) || code.code === 0x0000
+}
+
 export function legendOf(code: KeyCode): LegendModel {
   // Special transparent / no-op keys
-  if (code.key === 'KC_TRNS') return { kind: 'trns' }
-  if (code.key === 'KC_NO') return { kind: 'no' }
+  if (isTransparent(code)) return { kind: 'trns' }
+  if (isNoOp(code)) return { kind: 'no' }
 
   const tmpl = code.template
 

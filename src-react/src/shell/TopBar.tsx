@@ -11,7 +11,7 @@ interface TopBarProps {
 function SecureToggle({ device }: { device: DeviceSummary }) {
   const secureLock = useSecureLock(device.id)
   const secureUnlock = useSecureUnlock(device.id)
-  const { label, disabled } = secureToggleLabel(device.secureStatus)
+  const { label, disabled, title, color } = secureToggleLabel(device.secureStatus)
 
   function handleToggle() {
     if (device.secureStatus === 'Unlocked') {
@@ -27,8 +27,13 @@ function SecureToggle({ device }: { device: DeviceSummary }) {
       variant="outline"
       disabled={disabled}
       onClick={handleToggle}
-      style={{ fontSize: 11, height: 26, padding: '0 9px' }}
+      title={title}
+      style={{ fontSize: 11, height: 26, padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: 6, borderColor: color, color }}
     >
+      <span
+        aria-hidden
+        style={{ width: 7, height: 7, borderRadius: '50%', background: color, boxShadow: `0 0 4px ${color}`, flexShrink: 0 }}
+      />
       {label}
     </Button>
   )
