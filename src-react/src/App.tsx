@@ -4,6 +4,7 @@ import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
 import { DevtoolsDock } from '@/features/devtools/DevtoolsDock'
 import { useDevtoolsSubscription } from '@/features/devtools/useDevtoolsSubscription'
+import { useDeviceSync } from '@/queries/useDeviceSync'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
 import { LightingPage } from '@/features/lighting/LightingPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
@@ -20,6 +21,7 @@ export default function App() {
   const dockOpen = useDevtoolsStore((s) => s.dockOpen)
 
   useDevtoolsSubscription()
+  useDeviceSync()
 
   // Default to first device on mount
   useEffect(() => {
