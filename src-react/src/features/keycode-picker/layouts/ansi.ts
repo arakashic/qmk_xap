@@ -3,8 +3,10 @@ import type { KeyboardLayoutDef } from './types'
 export const ANSI_LAYOUT: KeyboardLayoutDef = {
   id: 'ansi',
   label: 'ANSI',
-  width: 22.5,
-  height: 6.25,
+  // Canvas extents = max key right/bottom edge (numpad ends at x=23; bottom row at y=6.5).
+  // The old Vue app used 22.5/6.25 because it compacted group gaps; this renderer does not.
+  width: 23,
+  height: 6.5,
   keys: [
     // Function row (y=0)
     { key: 'KC_ESCAPE', aliases: ['KC_ESC'], x: 0, y: 0, w: 1, h: 1 },
