@@ -1,8 +1,10 @@
-// Top bar: centered device chip + secure-status toggle for the active device
+// Top bar: centered device chip (Select dropdown) + secure-status toggle for the active device
 import type { DeviceSummary } from '@/xap/client'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { secureToggleLabel } from '@/features/devices/secureToggle'
-import { useSecureLock, useSecureUnlock } from '@/queries/devices'
+import { useDevices, useSecureLock, useSecureUnlock } from '@/queries/devices'
+import { useUiStore } from '@/store/ui'
 
 interface TopBarProps {
   device: DeviceSummary | null
@@ -40,6 +42,11 @@ function SecureToggle({ device }: { device: DeviceSummary }) {
 }
 
 export function TopBar({ device }: TopBarProps) {
+  const { data: devices } = useDevices()
+  const activeDeviceId = useUiStore((s) => s.activeDeviceId) ?? undefined
+  // Only disabled when devices have loaded and the list is empty
+  const noDevices = Array.isArray(devices) && devices.length === 0
+
   return (
     <div
       style={{
@@ -51,23 +58,40 @@ export function TopBar({ device }: TopBarProps) {
         borderBottom: '1px solid hsl(var(--border))',
       }}
     >
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          border: '1px solid hsl(var(--border))',
-          borderRadius: 'calc(var(--radius) - 2px)',
-          background: 'hsl(var(--background))',
-          padding: '5px 10px',
-          fontSize: 11,
-          fontWeight: 500,
-          color: 'hsl(var(--foreground))',
-          boxShadow: '0 1px 2px rgb(0 0 0 / .04)',
-        }}
+      <Select
+        value={activeDeviceId}
+        onValueChange={(id) => useUiStore.getState().setActiveDevice(id)}
+        disabled={noDevices}
       >
-        ⌨ {device ? device.product : 'No device'}
-      </span>
+        <SelectTrigger
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            border: '1px solid hsl(var(--border))',
+            borderRadius: 'calc(var(--radius) - 2px)',
+            background: 'hsl(var(--background))',
+            padding: '0 10px',
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'hsl(var(--foreground))',
+            boxShadow: '0 1px 2px rgb(0 0 0 / .04)',
+            height: 30,
+            width: 'auto',
+            minWidth: 180,
+          }}
+        >
+          <span aria-hidden style={{ flexShrink: 0 }}>⌨</span>
+          {/* Show product from prop immediately (before query resolves); SelectValue takes over once items load */}
+          {device ? device.product : (noDevices ? 'No device' : null)}
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(devices ?? []).map((d) => (
+            <SelectItem key={d.id} value={d.id}>{d.product}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {device && <SecureToggle device={device} />}
     </div>
   )
