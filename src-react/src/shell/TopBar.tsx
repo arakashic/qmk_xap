@@ -82,9 +82,9 @@ export function TopBar({ device }: TopBarProps) {
           }}
         >
           <span aria-hidden style={{ flexShrink: 0 }}>⌨</span>
-          {/* Show product from prop immediately (before query resolves); SelectValue takes over once items load */}
-          {device ? device.product : (noDevices ? 'No device' : null)}
-          <SelectValue />
+          {/* Prop product bridges only before the query resolves; once devices load, SelectValue is the single label source */}
+          {!devices && device ? device.product : null}
+          <SelectValue placeholder="No device" />
         </SelectTrigger>
         <SelectContent>
           {(devices ?? []).map((d) => (
