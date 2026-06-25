@@ -6,7 +6,7 @@ import { activeClientKind } from '@/xap/runtime'
 
 /** Web-only: opens the WebHID device chooser (a user gesture is required), then
  *  refetches the device list. Renders nothing unless the active client is the
- *  web (WebHID) client — i.e. not on desktop, in `?mock=1`, or non-WebHID
+ *  web (WebHID) client — i.e. not on desktop, in a mock build, or non-WebHID
  *  browsers. */
 export function ConnectDeviceButton() {
   const qc = useQueryClient()

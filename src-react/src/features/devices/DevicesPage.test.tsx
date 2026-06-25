@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { beforeEach, describe, it, expect } from 'vitest'
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
 import App from '@/App'
 import { XapClientContext } from '@/queries/client-context'
 import { MockXapClient } from '@/xap/mock/client'
@@ -22,9 +22,14 @@ function Wrapper({ client, qc }: { client: MockXapClient; qc: QueryClient }) {
 
 beforeEach(() => {
   useUiStore.setState({ activeDeviceId: null, selectedLayer: 0, route: 'keymap' })
-  // jsdom has no navigator.hid, so the runtime would resolve to 'unsupported';
-  // this test drives the mock client, so opt into mock mode explicitly.
-  window.localStorage.setItem('xap-client', 'mock')
+  // jsdom has no navigator.hid, so the runtime would resolve to 'unsupported'
+  // and App would render the unsupported landing. This test drives the injected
+  // mock client, so put the runtime in the mock build kind explicitly.
+  vi.stubEnv('VITE_MOCK', '1')
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
 })
 
 describe('DevicesPage routing', () => {

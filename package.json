@@ -6,10 +6,12 @@
     "scripts": {
         "build": "tauri build",
         "build:react": "vite build --config src-react/vite.config.ts",
+        "build:react:mock": "VITE_MOCK=1 vite build --config src-react/vite.config.ts",
         "build:wasm": "PATH=\"$(dirname \"$(rustup which rustc)\")\":$PATH wasm-pack build xap-wasm --target web --out-dir ../src/generated/xap-wasm --dev",
         "check": "cd src-tauri && cargo check",
         "dev": "RUST_BACKTRACE=1 tauri dev",
         "dev:react": "vite --config src-react/vite.config.ts",
+        "dev:react:mock": "VITE_MOCK=1 vite --config src-react/vite.config.ts",
         "format": "prettier --write .",
         "preview": "vite preview",
         "sync:keycodes": "python3 xap-specs/scripts/sync_keycodes.py",

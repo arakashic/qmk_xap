@@ -10,12 +10,17 @@ import './styles/globals.css'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <XapClientContext.Provider value={instrumentClient(selectClient(), devtoolsSink)}>
-        <App />
-      </XapClientContext.Provider>
-    </QueryClientProvider>
-  </StrictMode>,
-)
+async function bootstrap() {
+  const client = instrumentClient(await selectClient(), devtoolsSink)
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <XapClientContext.Provider value={client}>
+          <App />
+        </XapClientContext.Provider>
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
+void bootstrap()

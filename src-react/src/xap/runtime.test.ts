@@ -18,29 +18,37 @@ function setHid(present: boolean) {
 
 describe('selectClient', () => {
   afterEach(() => {
-    // Clean up any __TAURI_INTERNALS__ property added during tests
     delete (window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__']
+    setHid(false)
+    vi.unstubAllEnvs()
   })
 
-  it('returns RealXapClient when __TAURI_INTERNALS__ is present on window', () => {
+  it('returns RealXapClient inside the Tauri webview', async () => {
     ;(window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__'] = {}
-    const client = selectClient()
-    expect(client).toBeInstanceOf(RealXapClient)
-  })
-
-  it('returns MockXapClient when __TAURI_INTERNALS__ is absent', () => {
-    const client = selectClient()
-    expect(client).toBeInstanceOf(MockXapClient)
+    expect(await selectClient()).toBeInstanceOf(RealXapClient)
   })
 
   // Regression: the desktop adapter must subscribe on the SAME channel the Rust
   // backend emits on (`handle.emit("xap", ...)`). It previously listened on the
-  // stale tauri-specta name 'xap-event', so no broadcast ever reached the UI
-  // (caught only by the Plan 6 end-to-end sim run, not the mocked unit tests).
-  it('subscribes Tauri broadcasts on the "xap" channel (matches backend emit)', () => {
+  // stale tauri-specta name 'xap-event', so no broadcast ever reached the UI.
+  it('subscribes Tauri broadcasts on the "xap" channel (matches backend emit)', async () => {
     ;(window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__'] = {}
-    selectClient().subscribe(() => {})
+    ;(await selectClient()).subscribe(() => {})
     expect(vi.mocked(listen)).toHaveBeenCalledWith('xap', expect.any(Function))
+  })
+
+  it('returns the mock client only when VITE_MOCK is set', async () => {
+    vi.stubEnv('VITE_MOCK', '1')
+    expect(await selectClient()).toBeInstanceOf(MockXapClient)
+  })
+
+  it('returns an inert client (not the mock) for a non-WebHID browser', async () => {
+    setHid(false)
+    const c = await selectClient()
+    expect(c).not.toBeInstanceOf(MockXapClient)
+    expect(c).not.toBeInstanceOf(RealXapClient)
+    await expect(c.listDevices()).resolves.toEqual([])
+    expect(typeof c.subscribe(() => {})).toBe('function')
   })
 })
 
@@ -48,7 +56,7 @@ describe('activeClientKind', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__']
     setHid(false)
-    window.localStorage.clear()
+    vi.unstubAllEnvs()
   })
 
   it('is "tauri" inside the Tauri webview', () => {
@@ -56,24 +64,19 @@ describe('activeClientKind', () => {
     expect(activeClientKind()).toBe('tauri')
   })
 
-  it('is "web" in a WebHID browser (and selectClient yields the wasm-backed RealXapClient)', () => {
+  it('is "mock" in a VITE_MOCK build', () => {
+    vi.stubEnv('VITE_MOCK', '1')
+    expect(activeClientKind()).toBe('mock')
+  })
+
+  it('is "web" in a WebHID browser (and selectClient yields the wasm-backed RealXapClient)', async () => {
     setHid(true)
     expect(activeClientKind()).toBe('web')
-    expect(selectClient()).toBeInstanceOf(RealXapClient)
+    expect(await selectClient()).toBeInstanceOf(RealXapClient)
   })
 
   it('is "unsupported" in a non-WebHID browser (no silent mock fallback)', () => {
     setHid(false)
     expect(activeClientKind()).toBe('unsupported')
-    // selectClient still yields a mock instance; App short-circuits the
-    // unsupported case to a landing before rendering its fixture data.
-    expect(selectClient()).toBeInstanceOf(MockXapClient)
-  })
-
-  it('localStorage["xap-client"]="mock" forces mock even when WebHID is available', () => {
-    setHid(true)
-    window.localStorage.setItem('xap-client', 'mock')
-    expect(activeClientKind()).toBe('mock')
-    expect(selectClient()).toBeInstanceOf(MockXapClient)
   })
 })
