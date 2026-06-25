@@ -14,6 +14,12 @@ export function useDeviceSync(): void {
     const off = client.subscribe((e) => {
       if (e.kind === 'NewDevice' || e.kind === 'RemovedDevice') {
         qc.invalidateQueries({ queryKey: ['devices'] })
+      } else if (e.kind === 'SecureStatusChanged') {
+        // The firmware reports Unlocking immediately and broadcasts the final
+        // Unlocked/Locked status only after the hold sequence completes. Without
+        // this the secure toggle stays stuck on "Unlocking…".
+        qc.invalidateQueries({ queryKey: ['device', e.data.id] })
+        qc.invalidateQueries({ queryKey: ['devices'] })
       }
     })
     return off

@@ -45,6 +45,13 @@ describe('useDeviceSync', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ['devices'] })
   })
 
+  it('invalidates the device and devices queries on SecureStatusChanged', () => {
+    const { emit, spy } = setup()
+    emit({ kind: 'SecureStatusChanged', data: { id: 'dev1', secure_status: 'Unlocked' } })
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['device', 'dev1'] })
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['devices'] })
+  })
+
   it('ignores unrelated events', () => {
     const { emit, spy } = setup()
     emit({ kind: 'LogReceived', data: { id: 'dev1', log: 'hi' } })
