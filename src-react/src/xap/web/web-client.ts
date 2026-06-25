@@ -16,9 +16,10 @@ const emit = (e: XapEvent) => { for (const h of handlers) h(e) }
 
 const webhid = new WebHIDTransport()
 
-// Per-device lifecycle, tracked in TS because the wasm `devices()` list only
-// holds fully-interrogated devices — connecting/interrogating/failed devices
-// live here so listDevices() can surface them.
+// Per-device lifecycle, tracked in TS. add_device inserts a bare stub into the
+// wasm `devices()` list immediately (no info until interrogation finishes), so
+// this map carries the real phase (connecting/interrogating/failed) plus the
+// HID product name for listDevices() to surface before the device is ready.
 type StatusEntry = { status: DeviceStatus; product?: string; error?: string }
 const deviceStatus = new Map<string, StatusEntry>()
 
@@ -109,7 +110,11 @@ class WebXapClient extends RealXapClient {
     for (const [id, s] of deviceStatus) {
       const existing = byId.get(id)
       if (existing) {
-        byId.set(id, { ...existing, status: s.status, error: s.error })
+        // Before interrogation completes the wasm stub has no info, so its
+        // product is 'Unknown'. Prefer the HID product name we tracked at open
+        // time while still pending; trust the wasm product_name once ready.
+        const product = s.status === 'ready' ? existing.product : (s.product ?? existing.product)
+        byId.set(id, { ...existing, product, status: s.status, error: s.error })
       } else if (s.status !== 'ready') {
         byId.set(id, {
           id,
