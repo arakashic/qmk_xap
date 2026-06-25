@@ -7,9 +7,14 @@ vi.mock('@tauri-apps/api/event', () => ({
 }))
 
 // Import after mocks are registered
-const { selectClient } = await import('./runtime')
+const { selectClient, activeClientKind } = await import('./runtime')
 const { RealXapClient } = await import('./real-client')
 const { MockXapClient } = await import('./mock/client')
+
+function setHid(present: boolean) {
+  if (present) Object.defineProperty(navigator, 'hid', { value: {}, configurable: true })
+  else delete (navigator as unknown as Record<string, unknown>)['hid']
+}
 
 describe('selectClient', () => {
   afterEach(() => {
@@ -36,5 +41,37 @@ describe('selectClient', () => {
     ;(window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__'] = {}
     selectClient().subscribe(() => {})
     expect(vi.mocked(listen)).toHaveBeenCalledWith('xap', expect.any(Function))
+  })
+})
+
+describe('activeClientKind', () => {
+  afterEach(() => {
+    delete (window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__']
+    setHid(false)
+    window.localStorage.clear()
+  })
+
+  it('is "tauri" inside the Tauri webview', () => {
+    ;(window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__'] = {}
+    expect(activeClientKind()).toBe('tauri')
+  })
+
+  it('is "web" in a WebHID browser (and selectClient yields the wasm-backed RealXapClient)', () => {
+    setHid(true)
+    expect(activeClientKind()).toBe('web')
+    expect(selectClient()).toBeInstanceOf(RealXapClient)
+  })
+
+  it('is "mock" in a non-WebHID browser', () => {
+    setHid(false)
+    expect(activeClientKind()).toBe('mock')
+    expect(selectClient()).toBeInstanceOf(MockXapClient)
+  })
+
+  it('localStorage["xap-client"]="mock" forces mock even when WebHID is available', () => {
+    setHid(true)
+    window.localStorage.setItem('xap-client', 'mock')
+    expect(activeClientKind()).toBe('mock')
+    expect(selectClient()).toBeInstanceOf(MockXapClient)
   })
 })

@@ -8,6 +8,7 @@ import { useDeviceSync } from '@/queries/useDeviceSync'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
 import { LightingPage } from '@/features/lighting/LightingPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
+import { ConnectDeviceButton } from '@/features/devices/ConnectDeviceButton'
 import { useUiStore } from '@/store/ui'
 import { useDevtoolsStore } from '@/store/devtools'
 import { useDevices } from '@/queries/devices'
@@ -33,6 +34,30 @@ export default function App() {
   const activeDevice = devices?.find((d) => d.id === activeDeviceId) ?? null
 
   const showChrome = route !== 'devices'
+
+  // No keyboard connected → a full-screen connect landing, hiding the normal
+  // layout. The web app starts empty until the user picks a device via the
+  // WebHID chooser; a desktop device auto-enumerates.
+  if (devices && devices.length === 0) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          height: '100vh',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'hsl(var(--background))',
+          fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+          fontSize: 12,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'hsl(var(--muted-foreground))' }}>
+          <div style={{ fontSize: 14 }}>No keyboard connected.</div>
+          <ConnectDeviceButton />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
