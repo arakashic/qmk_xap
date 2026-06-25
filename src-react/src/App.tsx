@@ -68,7 +68,12 @@ export default function App() {
   // layout. Distinguish first-load/arrival (searching), a handshake in progress
   // (connecting), a failed interrogation, and a genuinely empty list.
   if (ready.length === 0) {
-    const searching = isLoading || (!isError && pending.length === 0 && failed.length === 0 && !graceElapsed)
+    // The "searching" grace window only covers desktop hotplug enumeration. The
+    // web app has no auto-connect, so an empty list lands straight on "No
+    // keyboard connected." with the connect button.
+    const searching =
+      activeClientKind() !== 'web' &&
+      (isLoading || (!isError && pending.length === 0 && failed.length === 0 && !graceElapsed))
     return <DeviceLanding searching={searching} errored={isError} pending={pending} failed={failed} />
   }
 
