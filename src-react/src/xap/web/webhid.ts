@@ -16,7 +16,6 @@ export interface DeviceArrival {
 
 export interface TransportCallbacks {
   onInput: (deviceId: string, bytes: Uint8Array) => void
-  onConnect: (deviceId: string, productName?: string) => void
   onDisconnect: (deviceId: string) => void
 }
 
@@ -25,23 +24,16 @@ export class WebHIDTransport {
   private listenersRegistered = false
   private cb?: TransportCallbacks
 
-  /** Wire up callbacks and register passive connect/disconnect listeners so the
-   *  transport reacts to hotplug from app load, not only after a manual connect. */
+  /** Wire up callbacks and register the passive disconnect listener so closed
+   *  devices are cleaned up. We deliberately do NOT open devices without a user
+   *  gesture (no getDevices reattach, no connect-auto-open): opening a handle
+   *  from getDevices()/the connect event hands back the whole-device handle
+   *  (keyboard collections included), which makes macOS demand the Input
+   *  Monitoring permission. Opening only the filtered requestDevice handle (XAP
+   *  vendor collection 0xff51) never triggers it. */
   init(cb: TransportCallbacks): void {
     this.cb = cb
     this.registerListeners()
-  }
-
-  /** Reopen devices the origin was already granted (WebHID grants persist across
-   *  reloads), so a plugged-in, authorized keyboard reattaches on page load. */
-  async reattachGranted(): Promise<DeviceArrival[]> {
-    const granted = await navigator.hid.getDevices()
-    const arrivals: DeviceArrival[] = []
-    for (const device of granted) {
-      if (this.findId(device) != null) continue
-      arrivals.push(await this.openAndRegister(device))
-    }
-    return arrivals
   }
 
   /** Prompt the chooser (user gesture). Returns the newly-opened devices plus a
@@ -90,12 +82,6 @@ export class WebHIDTransport {
       if (id == null) return
       this.devices.delete(id)
       this.cb?.onDisconnect(id)
-    })
-    navigator.hid.addEventListener('connect', (event: HIDConnectionEvent) => {
-      if (this.findId(event.device) != null) return
-      void this.openAndRegister(event.device).then(({ id, productName }) => {
-        this.cb?.onConnect(id, productName)
-      })
     })
   }
 }

@@ -71,26 +71,22 @@ async function arrive(arrivals: DeviceArrival[]): Promise<void> {
 }
 
 let initialized = false
-/** Activate the passive arrival path: register connect/disconnect listeners and
- *  reattach already-granted devices. Idempotent; safe to call from app load and
- *  from the connect button. */
+/** Register the disconnect listener so unplugged devices are cleaned up.
+ *  Idempotent; safe to call from app load and from the connect button. We do NOT
+ *  open any device here: opening a getDevices()/connect-event handle without a
+ *  user gesture triggers the macOS Input Monitoring prompt (see webhid.ts).
+ *  Devices are only opened via the explicit connect flow. */
 export function initWebTransport(): void {
   if (initialized) return
   initialized = true
   webhid.init({
     onInput: (id, bytes) => wasm?.handle_input_report(id, bytes),
-    onConnect: (id, productName) => { void arrive([{ id, productName }]) },
     onDisconnect: (id) => {
       deviceStatus.delete(id)
       wasm?.remove_device(id)
       emit({ kind: 'RemovedDevice', data: { id } })
     },
   })
-  void (async () => {
-    await ensureClient()
-    const arrivals = await webhid.reattachGranted()
-    if (arrivals.length) await arrive(arrivals)
-  })()
 }
 
 /** Prompt the WebHID device chooser (requires a user gesture), open + interrogate

@@ -31,8 +31,8 @@ export default function App() {
   useDevtoolsSubscription()
   useDeviceSync()
 
-  // Activate the web passive-arrival path (getDevices reattach + 'connect'
-  // listener) once on mount; no-op on desktop/mock.
+  // Register the web transport's disconnect listener once on mount; no-op on
+  // desktop/mock. Does not open any device (that needs a user gesture).
   useEffect(() => {
     if (activeClientKind() === 'web') initWebTransport()
   }, [])
