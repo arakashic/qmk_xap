@@ -14,8 +14,21 @@ export const useLightingConfig = (id: string | null, sub: LightingSub) => {
 
 export const useSetLightingConfig = (id: string, sub: LightingSub) => {
   const c = useXapClient()
+  const qc = useQueryClient()
+  const key = ['lighting', id, sub]
   return useMutation({
     mutationFn: (config: LightingConfig) => c.setLightingConfig(id, sub, config),
+    onMutate: async (config) => {
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<LightingConfig>(key)
+      qc.setQueryData(key, config)
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      qc.setQueryData(key, ctx?.prev)
+    },
+    // Was missing entirely — without it the lighting cache drifts from the device.
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   })
 }
 

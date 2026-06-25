@@ -73,11 +73,13 @@ describe('effectOptions', () => {
     expect(effectOptions(effects)).toEqual([{ value: 5, label: 'CYCLE_LEFT_RIGHT' }])
   })
 
-  it('defaults code to 0 when code is undefined', () => {
+  it('drops effects without a code (cannot be a selectable mode)', () => {
     const effects: LightingEffect[] = [
+      { code: 1, key: 'SOLID_COLOR', group: null, label: 'Solid Color' },
       { key: 'UNKNOWN_EFFECT', group: null },
+      { key: 'ANOTHER_CODELESS', group: null },
     ]
-    expect(effectOptions(effects)).toEqual([{ value: 0, label: 'UNKNOWN_EFFECT' }])
+    expect(effectOptions(effects)).toEqual([{ value: 1, label: 'Solid Color' }])
   })
 })
 

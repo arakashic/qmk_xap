@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Rail } from '@/shell/Rail'
 import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
@@ -8,13 +8,20 @@ import { useDeviceSync } from '@/queries/useDeviceSync'
 import { KeymapPage } from '@/features/keymap/KeymapPage'
 import { LightingPage } from '@/features/lighting/LightingPage'
 import { DevicesPage } from '@/features/devices/DevicesPage'
-import { ConnectDeviceButton } from '@/features/devices/ConnectDeviceButton'
+import { DeviceLanding } from '@/features/devices/DeviceLanding'
 import { useUiStore } from '@/store/ui'
 import { useDevtoolsStore } from '@/store/devtools'
 import { useDevices } from '@/queries/devices'
+import { activeClientKind } from '@/xap/runtime'
+import { initWebTransport } from '@/xap/web/web-client'
+
+// How long an empty device list reads as "still arriving" before settling to
+// "No keyboard connected." Covers the desktop hotplug enumeration (~1s after
+// startup) so the arrival window doesn't flash as a failure.
+const SEARCH_GRACE_MS = 2000
 
 export default function App() {
-  const { data: devices } = useDevices()
+  const { data: devices, isLoading, isError } = useDevices()
   const activeDeviceId = useUiStore((s) => s.activeDeviceId)
   const setActiveDevice = useUiStore((s) => s.setActiveDevice)
   const route = useUiStore((s) => s.route)
@@ -24,39 +31,45 @@ export default function App() {
   useDevtoolsSubscription()
   useDeviceSync()
 
-  // Default to first device on mount
+  // Activate the web passive-arrival path (getDevices reattach + 'connect'
+  // listener) once on mount; no-op on desktop/mock.
   useEffect(() => {
-    if (!activeDeviceId && devices && devices.length > 0) {
-      setActiveDevice(devices[0].id)
-    }
-  }, [devices, activeDeviceId, setActiveDevice])
+    if (activeClientKind() === 'web') initWebTransport()
+  }, [])
 
-  const activeDevice = devices?.find((d) => d.id === activeDeviceId) ?? null
+  const [graceElapsed, setGraceElapsed] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setGraceElapsed(true), SEARCH_GRACE_MS)
+    return () => clearTimeout(t)
+  }, [])
+
+  const ready = devices?.filter((d) => d.status === 'ready') ?? []
+  const pending = devices?.filter((d) => d.status === 'connecting' || d.status === 'interrogating') ?? []
+  const failed = devices?.filter((d) => d.status === 'failed') ?? []
+
+  // Default to first ready device on mount
+  useEffect(() => {
+    if (!activeDeviceId && ready.length > 0) {
+      setActiveDevice(ready[0].id)
+    }
+  }, [ready, activeDeviceId, setActiveDevice])
+
+  const activeDevice = ready.find((d) => d.id === activeDeviceId) ?? null
 
   const showChrome = route !== 'devices'
 
-  // No keyboard connected → a full-screen connect landing, hiding the normal
-  // layout. The web app starts empty until the user picks a device via the
-  // WebHID chooser; a desktop device auto-enumerates.
-  if (devices && devices.length === 0) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          height: '100vh',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'hsl(var(--background))',
-          fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
-          fontSize: 12,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, color: 'hsl(var(--muted-foreground))' }}>
-          <div style={{ fontSize: 14 }}>No keyboard connected.</div>
-          <ConnectDeviceButton />
-        </div>
-      </div>
-    )
+  // A browser without WebHID has no real transport — say so instead of silently
+  // showing mock fixtures as if they were real devices.
+  if (activeClientKind() === 'unsupported') {
+    return <DeviceLanding searching={false} errored={false} pending={[]} failed={[]} unsupported />
+  }
+
+  // Nothing usable yet → a full-screen lifecycle landing instead of the normal
+  // layout. Distinguish first-load/arrival (searching), a handshake in progress
+  // (connecting), a failed interrogation, and a genuinely empty list.
+  if (ready.length === 0) {
+    const searching = isLoading || (!isError && pending.length === 0 && failed.length === 0 && !graceElapsed)
+    return <DeviceLanding searching={searching} errored={isError} pending={pending} failed={failed} />
   }
 
   return (

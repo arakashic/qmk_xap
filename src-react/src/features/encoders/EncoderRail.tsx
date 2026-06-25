@@ -11,6 +11,10 @@ export interface EncoderRailProps {
 }
 
 export function EncoderRail({ layer, encoders, selectedTarget, pendingFill, onSelectSlot }: EncoderRailProps) {
+  // No encoders (or an errored/empty fetch) → render nothing, not an empty
+  // dashed strip.
+  if (encoders.length === 0) return null
+
   return (
     <div
       style={{

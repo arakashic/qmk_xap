@@ -3,11 +3,18 @@ import type { XapDeviceState, MappedKeymap, XapSecureStatus, XapEvent, XapConsta
 export type LightingSub = 'backlight' | 'rgblight' | 'rgbmatrix'
 export type LightingConfig = BacklightConfig | RgbLightConfig | RgbMatrixConfig
 
+// Per-device lifecycle. Mock/desktop only surface fully-interrogated devices, so
+// they always report 'ready'; the web transport reports the real arrival phases.
+export type DeviceStatus = 'connecting' | 'interrogating' | 'ready' | 'failed'
+
 export interface DeviceSummary {
   id: string
   product: string
   manufacturer: string
   secureStatus: XapSecureStatus
+  status: DeviceStatus
+  /** Populated when status === 'failed'. */
+  error?: string
 }
 
 export type Unsubscribe = () => void

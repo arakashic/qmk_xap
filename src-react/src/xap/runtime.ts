@@ -31,16 +31,18 @@ const tauriEvents: XapEventSource = {
   },
 }
 
-export type ClientKind = 'tauri' | 'web' | 'mock'
+export type ClientKind = 'tauri' | 'web' | 'mock' | 'unsupported'
 
 // Which transport this runtime resolves to. Tauri desktop → 'tauri'; a browser
-// with `?mock=1` (or localStorage) → 'mock'; a WebHID browser → 'web'; otherwise
-// 'mock'. Drives both selectClient and the web-only connect affordance.
+// with `?mock=1` (or localStorage) → 'mock'; a WebHID browser → 'web'; a browser
+// without WebHID (Firefox/Safari) → 'unsupported' (rather than silently showing
+// mock fixtures as if real). Drives selectClient, the web-only connect
+// affordance, and the unsupported-browser landing.
 export function activeClientKind(): ClientKind {
   if (isTauri()) return 'tauri'
   if (wantsMock()) return 'mock'
   if (isWebHIDSupported()) return 'web'
-  return 'mock'
+  return 'unsupported'
 }
 
 export function selectClient(): XapClient {
@@ -50,6 +52,8 @@ export function selectClient(): XapClient {
     case 'web':
       return getWebClient()
     default:
+      // 'mock' and 'unsupported' both use the mock client; App short-circuits the
+      // unsupported case to a landing before ever rendering its (fixture) data.
       return new MockXapClient()
   }
 }

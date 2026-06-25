@@ -22,6 +22,9 @@ function Wrapper({ client, qc }: { client: MockXapClient; qc: QueryClient }) {
 
 beforeEach(() => {
   useUiStore.setState({ activeDeviceId: null, selectedLayer: 0, route: 'keymap' })
+  // jsdom has no navigator.hid, so the runtime would resolve to 'unsupported';
+  // this test drives the mock client, so opt into mock mode explicitly.
+  window.localStorage.setItem('xap-client', 'mock')
 })
 
 describe('DevicesPage routing', () => {
@@ -31,8 +34,9 @@ describe('DevicesPage routing', () => {
 
     render(<Wrapper client={client} qc={qc} />)
 
-    // Click the Devices nav item in the rail
-    const devicesButton = screen.getByRole('button', { name: /devices/i })
+    // Click the Devices nav item in the rail (appears once devices load — the
+    // first render shows the searching landing).
+    const devicesButton = await screen.findByRole('button', { name: /devices/i })
     fireEvent.click(devicesButton)
 
     // Both device product names from the mock fixtures should appear

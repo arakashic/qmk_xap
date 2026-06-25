@@ -3,3 +3,4 @@
 @tailwind components;
 @tailwind utilities;
 body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+@keyframes xap-spin { to { transform: rotate(360deg); } }

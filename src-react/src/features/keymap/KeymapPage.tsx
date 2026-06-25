@@ -15,9 +15,19 @@ import { LayerBar } from './LayerBar'
 export function KeymapPage() {
   const activeDeviceId = useUiStore((s) => s.activeDeviceId)
   const selectedLayer = useUiStore((s) => s.selectedLayer)
-  const { data: keymap, isLoading } = useMappedKeymap(activeDeviceId)
+  const setLayer = useUiStore((s) => s.setLayer)
+  const { data: keymap, isLoading, isError } = useMappedKeymap(activeDeviceId)
 
   const { data: encoders } = useEncoderKeymap(activeDeviceId)
+
+  // Clamp the selected layer to the device's layer range. setLayer is unbounded
+  // (it doesn't know layerCount), so an out-of-range value would blank the board
+  // while LayerBar highlights a nonexistent pill.
+  const layerCount = keymap?.keys.length ?? 0
+  const layer = Math.min(Math.max(selectedLayer, 0), Math.max(layerCount - 1, 0))
+  useEffect(() => {
+    if (layerCount > 0 && selectedLayer > layerCount - 1) setLayer(layerCount - 1)
+  }, [layerCount, selectedLayer, setLayer])
 
   const picker = usePickerStore()
   const remapKey = useRemapKey(activeDeviceId ?? '')
@@ -48,9 +58,9 @@ export function KeymapPage() {
   // Handle encoder slot click: open picker for the encoder target.
   const handleSelectSlot = useCallback(
     (encoder: number, clockwise: number) => {
-      picker.open({ kind: 'encoder', layer: selectedLayer, encoder, clockwise })
+      picker.open({ kind: 'encoder', layer, encoder, clockwise })
     },
-    [picker, selectedLayer],
+    [picker, layer],
   )
 
   // Route a write to the correct mutation based on target kind.
@@ -156,6 +166,23 @@ export function KeymapPage() {
     )
   }
 
+  if (isError) {
+    return (
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'hsl(var(--muted-foreground))',
+          fontSize: 12,
+        }}
+      >
+        Could not load keymap.
+      </div>
+    )
+  }
+
   if (!keymap) {
     return (
       <div
@@ -173,8 +200,6 @@ export function KeymapPage() {
     )
   }
 
-  const layerCount = keymap.keys.length
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
       <LayerBar layerCount={layerCount} />
@@ -183,15 +208,15 @@ export function KeymapPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
           <Board
             keymap={keymap}
-            layer={selectedLayer}
+            layer={layer}
             onSelectKey={handleSelectKey}
             selectedTarget={picker.target}
             pendingFill={picker.pending}
           />
         </div>
         <EncoderRail
-          layer={selectedLayer}
-          encoders={encoders?.[selectedLayer] ?? []}
+          layer={layer}
+          encoders={encoders?.[layer] ?? []}
           selectedTarget={picker.target}
           pendingFill={picker.pending}
           onSelectSlot={handleSelectSlot}

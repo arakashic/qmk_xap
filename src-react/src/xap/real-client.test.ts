@@ -88,12 +88,14 @@ describe('RealXapClient queries', () => {
       product: ugoState.info?.qmk.product_name ?? 'Unknown',
       manufacturer: ugoState.info?.qmk.manufacturer ?? '',
       secureStatus: ugoState.secure_status,
+      status: 'ready',
     })
     expect(devices[1]).toEqual({
       id: miniState.id,
       product: miniState.info?.qmk.product_name ?? 'Unknown',
       manufacturer: miniState.info?.qmk.manufacturer ?? '',
       secureStatus: miniState.secure_status,
+      status: 'ready',
     })
   })
 

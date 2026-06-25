@@ -30,7 +30,12 @@ export function hsbToQmk(hue: number, saturation: number, brightness: number): {
 }
 
 export function effectOptions(effects: LightingEffect[]): { value: number; label: string }[] {
-  return effects.map(e => ({ value: e.code ?? 0, label: e.label ?? e.key }))
+  // Drop code-less effects: `mode` is a numeric code, so an effect with no code
+  // can never be the selected mode, and defaulting several of them to 0 would
+  // produce duplicate Select values that collide.
+  return effects
+    .filter((e): e is LightingEffect & { code: number } => e.code != null)
+    .map(e => ({ value: e.code, label: e.label ?? e.key }))
 }
 
 export function effectLabel(effects: LightingEffect[], mode: number): string {

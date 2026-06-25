@@ -6,6 +6,7 @@ import { PickerKey } from './PickerKey'
 import { BasicKeyboardLayout } from './BasicKeyboardLayout'
 import { getLayout } from './layouts/index'
 import { usePrefsStore } from '@/store/prefs'
+import { PICKER_CAP_W, PICKER_CAP_H, PICKER_GAP } from './capSize'
 
 function expandLayerTemplate(kind: string, layerCount: number): KeyCode[] {
   return Array.from({ length: layerCount }, (_, i) => {
@@ -94,8 +95,8 @@ function PickerHoldKey({ code, family, onPick, onHover }: PickerHoldKeyProps) {
       onMouseEnter={() => onHover(code)}
       onMouseLeave={() => onHover(null)}
       style={{
-        width: 42,
-        height: 34,
+        width: PICKER_CAP_W,
+        height: PICKER_CAP_H,
         padding: 0,
         cursor: 'pointer',
         borderRadius: 'var(--cap-radius)',
@@ -108,8 +109,8 @@ function PickerHoldKey({ code, family, onPick, onHover }: PickerHoldKeyProps) {
         ...HOLD_STYLE[family],
       }}
     >
-      <span style={{ fontSize: 6, lineHeight: 1, marginBottom: 1, color: 'inherit', opacity: 0.8 }}>hold</span>
-      <span style={{ fontSize: 11, fontWeight: 600 }}>{code.label ?? code.key}</span>
+      <span style={{ fontSize: 7, lineHeight: 1, marginBottom: 1, color: 'inherit', opacity: 0.8 }}>hold</span>
+      <span style={{ fontSize: 12, fontWeight: 600 }}>{code.label ?? code.key}</span>
     </button>
   )
 }
@@ -152,7 +153,7 @@ export function PickerCatalog({
                     {sg.label}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: PICKER_GAP, flexWrap: 'wrap' }}>
                   {filtered.map((code) => (
                     <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
                   ))}
@@ -200,7 +201,7 @@ export function PickerCatalog({
                   {sg.label}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: PICKER_GAP, flexWrap: 'wrap' }}>
                 {filtered.map((code) =>
                   isModTemplate ? (
                     <PickerHoldKey key={code.key} code={code} family={holdFamily} onPick={onPick} onHover={onHover} />

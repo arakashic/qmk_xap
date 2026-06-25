@@ -72,6 +72,7 @@ export function LightingCard({ sub, caps, config, dirty, onPatch, onSave }: Ligh
           <Select
             value={String(config.mode)}
             onValueChange={(v) => onPatch({ mode: Number(v) })}
+            disabled={!enabled}
           >
             <SelectTrigger>
               <SelectValue />

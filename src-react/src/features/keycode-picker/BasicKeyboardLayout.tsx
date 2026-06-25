@@ -3,6 +3,7 @@ import type { KeyCode } from '@/xap/types'
 import { KeyCap } from '@/features/keymap/KeyCap'
 import { resolveLayout } from './layouts/resolve'
 import type { KeyboardLayoutDef } from './layouts/types'
+import { PICKER_CAP_H, PICKER_GAP } from './capSize'
 
 export interface BasicKeyboardLayoutProps {
   codes: KeyCode[]
@@ -11,8 +12,10 @@ export interface BasicKeyboardLayoutProps {
   onHover: (code: KeyCode | null) => void
 }
 
-const UNIT = 42
-const GAP = 3
+// 1u cap = UNIT - GAP, matched to the catalog cap height so keys don't change
+// size when the basic tab switches between physical layout and filtered grid.
+const GAP = PICKER_GAP
+const UNIT = PICKER_CAP_H + GAP
 
 export function BasicKeyboardLayout({ codes, layout, onPick, onHover }: BasicKeyboardLayoutProps): React.JSX.Element {
   const resolved = resolveLayout(codes, layout)

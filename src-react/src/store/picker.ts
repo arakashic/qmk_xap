@@ -17,6 +17,8 @@ interface PickerState {
   setQuery(q: string): void
   setHovered(c: KeyCode | null): void
   setPending(p: PendingFill | null): void
+  /** Clear all selection state on device switch (keeps the pin preference). */
+  reset(): void
 }
 
 export const usePickerStore = create<PickerState>((set) => ({
@@ -34,4 +36,5 @@ export const usePickerStore = create<PickerState>((set) => ({
   setQuery: (q) => set({ query: q }),
   setHovered: (c) => set({ hovered: c }),
   setPending: (p) => set({ pending: p }),
+  reset: () => set({ dockOpen: false, target: null, pending: null, hovered: null, query: '', activeTab: 'basic' }),
 }))

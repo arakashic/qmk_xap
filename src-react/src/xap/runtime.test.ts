@@ -62,9 +62,11 @@ describe('activeClientKind', () => {
     expect(selectClient()).toBeInstanceOf(RealXapClient)
   })
 
-  it('is "mock" in a non-WebHID browser', () => {
+  it('is "unsupported" in a non-WebHID browser (no silent mock fallback)', () => {
     setHid(false)
-    expect(activeClientKind()).toBe('mock')
+    expect(activeClientKind()).toBe('unsupported')
+    // selectClient still yields a mock instance; App short-circuits the
+    // unsupported case to a landing before rendering its fixture data.
     expect(selectClient()).toBeInstanceOf(MockXapClient)
   })
 

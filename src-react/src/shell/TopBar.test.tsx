@@ -21,7 +21,7 @@ function wrap(device: DeviceSummary | null) {
 beforeEach(() => useUiStore.setState({ activeDeviceId: 'ugo_rev3_full' }))
 
 it('renders a device-selector combobox showing the active device product', async () => {
-  const device: DeviceSummary = { id: 'ugo_rev3_full', product: '[SIM] Protok Keyboard Model II Full Native Sim', manufacturer: 'x', secureStatus: 'Unlocked' }
+  const device: DeviceSummary = { id: 'ugo_rev3_full', product: '[SIM] Protok Keyboard Model II Full Native Sim', manufacturer: 'x', secureStatus: 'Unlocked', status: 'ready' }
   render(wrap(device))
   expect(await screen.findByRole('combobox')).toBeInTheDocument()
   expect(screen.getByText(/Protok/)).toBeInTheDocument()

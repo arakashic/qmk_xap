@@ -3,10 +3,10 @@
 // The wasm module is loaded lazily (dynamic import) on first connect, so this
 // file is import-safe in tests and on the desktop build.
 import type { XapWasmClient } from '@gen/xap-wasm/xap_wasm.js'
-import type { XapClient, Unsubscribe } from '../client'
+import type { XapClient, Unsubscribe, DeviceSummary, DeviceStatus } from '../client'
 import type { XapEvent } from '../types'
 import { RealXapClient, type XapEventSource } from '../real-client'
-import { WebHIDTransport, isWebHIDSupported } from './webhid'
+import { WebHIDTransport, isWebHIDSupported, type DeviceArrival } from './webhid'
 import { makeWasmCommands } from './wasm-commands'
 
 export { isWebHIDSupported }
@@ -16,6 +16,13 @@ const emit = (e: XapEvent) => { for (const h of handlers) h(e) }
 
 const webhid = new WebHIDTransport()
 
+// Per-device lifecycle, tracked in TS because the wasm `devices()` list only
+// holds fully-interrogated devices — connecting/interrogating/failed devices
+// live here so listDevices() can surface them.
+type StatusEntry = { status: DeviceStatus; product?: string; error?: string }
+const deviceStatus = new Map<string, StatusEntry>()
+
+let wasm: XapWasmClient | null = null
 let clientPromise: Promise<XapWasmClient> | null = null
 function ensureClient(): Promise<XapWasmClient> {
   if (!clientPromise) {
@@ -26,7 +33,8 @@ function ensureClient(): Promise<XapWasmClient> {
         webhid.sendReport(deviceId, data).catch((e) => console.error('sendReport failed', e))
       }
       const emitEvent = (event: XapEvent) => emit(event)
-      return new XapWasmClient(sendReport, emitEvent)
+      wasm = new XapWasmClient(sendReport, emitEvent)
+      return wasm
     })()
   }
   return clientPromise
@@ -39,29 +47,92 @@ const webEvents: XapEventSource = {
   },
 }
 
-/** Prompt the WebHID device chooser (requires a user gesture), open + interrogate
- *  the selected device(s), and emit NewDevice so the UI can refetch. */
-export async function connectWebDevice(): Promise<void> {
+// Drive a newly-arrived device through connecting → interrogating → ready/failed,
+// emitting NewDevice on each transition so the UI refetches and renders the phase.
+async function arrive(arrivals: DeviceArrival[]): Promise<void> {
   const client = await ensureClient()
-  const onInput = (id: string, bytes: Uint8Array) => client.handle_input_report(id, bytes)
-  const onDisconnect = (id: string) => {
-    client.remove_device(id)
-    emit({ kind: 'RemovedDevice', data: { id } })
-  }
-  const newIds = await webhid.requestAndOpen(onInput, onDisconnect)
-  for (const id of newIds) {
-    client.add_device(id)
-    // Full device interrogation (info + keymap + secure) so devices()/device_state
-    // return a populated state immediately after connect.
-    try { await client.device_get(id) } catch (e) { console.error('device_get failed', e) }
+  for (const { id, productName } of arrivals) {
+    deviceStatus.set(id, { status: 'connecting', product: productName })
     emit({ kind: 'NewDevice', data: { id } })
+    try {
+      client.add_device(id)
+      deviceStatus.set(id, { status: 'interrogating', product: productName })
+      emit({ kind: 'NewDevice', data: { id } })
+      // Full device interrogation (info + keymap + secure) so devices()/device_state
+      // return a populated state once we report 'ready'.
+      await client.device_get(id)
+      deviceStatus.set(id, { status: 'ready', product: productName })
+      emit({ kind: 'NewDevice', data: { id } })
+    } catch (e) {
+      deviceStatus.set(id, { status: 'failed', product: productName, error: String((e as Error)?.message ?? e) })
+      emit({ kind: 'NewDevice', data: { id } })
+    }
+  }
+}
+
+let initialized = false
+/** Activate the passive arrival path: register connect/disconnect listeners and
+ *  reattach already-granted devices. Idempotent; safe to call from app load and
+ *  from the connect button. */
+export function initWebTransport(): void {
+  if (initialized) return
+  initialized = true
+  webhid.init({
+    onInput: (id, bytes) => wasm?.handle_input_report(id, bytes),
+    onConnect: (id, productName) => { void arrive([{ id, productName }]) },
+    onDisconnect: (id) => {
+      deviceStatus.delete(id)
+      wasm?.remove_device(id)
+      emit({ kind: 'RemovedDevice', data: { id } })
+    },
+  })
+  void (async () => {
+    await ensureClient()
+    const arrivals = await webhid.reattachGranted()
+    if (arrivals.length) await arrive(arrivals)
+  })()
+}
+
+/** Prompt the WebHID device chooser (requires a user gesture), open + interrogate
+ *  the selected device(s). Returns how many new devices were added and whether the
+ *  pick was a no-op because the device was already connected. */
+export async function connectWebDevice(): Promise<{ added: number; alreadyConnected: boolean }> {
+  await ensureClient()
+  initWebTransport()
+  const { newDevices, alreadyConnected } = await webhid.requestAndOpen()
+  await arrive(newDevices)
+  return { added: newDevices.length, alreadyConnected }
+}
+
+// Web client: RealXapClient over wasm, with listDevices merged against the TS
+// status map so in-progress (connecting/interrogating/failed) devices are visible.
+class WebXapClient extends RealXapClient {
+  async listDevices(): Promise<DeviceSummary[]> {
+    const ready = await super.listDevices()
+    const byId = new Map(ready.map((d) => [d.id, d]))
+    for (const [id, s] of deviceStatus) {
+      const existing = byId.get(id)
+      if (existing) {
+        byId.set(id, { ...existing, status: s.status, error: s.error })
+      } else if (s.status !== 'ready') {
+        byId.set(id, {
+          id,
+          product: s.product ?? 'Keyboard',
+          manufacturer: '',
+          secureStatus: 'Locked',
+          status: s.status,
+          error: s.error,
+        })
+      }
+    }
+    return [...byId.values()]
   }
 }
 
 let webClient: XapClient | null = null
 export function getWebClient(): XapClient {
   if (!webClient) {
-    webClient = new RealXapClient(makeWasmCommands(ensureClient), webEvents)
+    webClient = new WebXapClient(makeWasmCommands(ensureClient), webEvents)
   }
   return webClient
 }

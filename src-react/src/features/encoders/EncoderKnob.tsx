@@ -54,14 +54,16 @@ function Slot({ code, direction, isSelected, isPending, onClick }: SlotProps) {
       )
     : slotDisplay(code)
 
+  // Selected slot uses the accent blue (--primary), matching the board's
+  // selected key. (Amber is reserved for the pending "?" hole, below.)
   const valStyle: React.CSSProperties = {
-    border: isSelected ? '2px solid #d69e2e' : '1px solid hsl(var(--border))',
+    border: isSelected ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
     borderRadius: 'calc(var(--radius) - 3px)',
     padding: '3px 7px',
     fontSize: 10,
     fontWeight: 600,
     color: '#1e3a8a',
-    background: isSelected ? '#fefcbf' : '#fbfdff',
+    background: isSelected ? 'hsl(var(--primary) / 0.08)' : '#fbfdff',
     marginTop: 2,
   }
 
@@ -102,7 +104,7 @@ export interface EncoderKnobProps {
 }
 
 export function EncoderKnob({ index, ccw, cw, selectedSlot, pendingSlot, onSelectSlot }: EncoderKnobProps) {
-  // Knob circle: selected => amber ring
+  // Knob circle is static; selection is shown on the direction slots (Slot).
   const knobStyle: React.CSSProperties = {
     width: 54,
     height: 54,

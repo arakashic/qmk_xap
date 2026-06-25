@@ -36,6 +36,7 @@ export class MockXapClient implements XapClient {
       product: state.info?.qmk.product_name ?? 'Unknown',
       manufacturer: state.info?.qmk.manufacturer ?? '',
       secureStatus: state.secure_status,
+      status: 'ready' as const,
     }))
   }
 

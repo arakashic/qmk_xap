@@ -12,19 +12,22 @@ export function ConnectDeviceButton() {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
 
   if (activeClientKind() !== 'web') return null
 
   async function handleConnect() {
     setErr(null)
+    setNote(null)
     setBusy(true)
     try {
-      await connectWebDevice()
+      const { added, alreadyConnected } = await connectWebDevice()
       await qc.invalidateQueries({ queryKey: ['devices'] })
+      // Re-picking a granted device is a no-op in WebHID; say so rather than
+      // looking broken. A plain dismissed chooser adds nothing and is silent.
+      if (added === 0 && alreadyConnected) setNote('That keyboard is already connected.')
     } catch (e) {
-      const msg = String((e as Error)?.message ?? e)
-      // The chooser being dismissed throws — not worth surfacing as an error.
-      if (!/no device selected|cancel/i.test(msg)) setErr(msg)
+      setErr(String((e as Error)?.message ?? e))
     } finally {
       setBusy(false)
     }
@@ -36,6 +39,7 @@ export function ConnectDeviceButton() {
         {busy ? 'Connecting…' : '⌨ Connect keyboard'}
       </Button>
       {err && <div style={{ color: '#c53030', fontSize: 12 }}>{err}</div>}
+      {note && <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{note}</div>}
     </div>
   )
 }

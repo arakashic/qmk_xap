@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { LightingSub, LightingConfig } from '@/xap/client'
 import type { LightingCapabilities, RgbMatrixConfig } from '@/xap/types'
 import { useLightingConfig, useSetLightingConfig, useSaveLightingConfig } from '@/queries/lighting'
@@ -11,35 +12,30 @@ interface LightingCardContainerProps {
 }
 
 export function LightingCardContainer({ id, sub, caps }: LightingCardContainerProps): React.JSX.Element | null {
-  const { data: loaded } = useLightingConfig(id, sub)
-  const [draft, setDraft] = useState<LightingConfig | null>(null)
+  // Authoritative source is the device config (query cache). Each patch writes
+  // to the device with an optimistic cache update (and rollback on failure), so
+  // the enable toggle / mode / HSV reflect the device rather than self-owning a
+  // local draft that could diverge. `dirty` only tracks unsaved-to-EEPROM edits.
+  const { data: config } = useLightingConfig(id, sub)
   const [dirty, setDirty] = useState(false)
-  const dirtyRef = useRef(dirty)
-  dirtyRef.current = dirty
+  const qc = useQueryClient()
 
   const setMut = useSetLightingConfig(id, sub)
   const saveMut = useSaveLightingConfig(id, sub)
-
-  // Adopt the loaded config only when the card is clean. A refetch (e.g. on
-  // window focus) must never clobber an applied-but-unsaved edit, which would
-  // falsely flip the card to "✓ saved" before it is persisted to EEPROM.
-  useEffect(() => {
-    if (loaded !== undefined && !dirtyRef.current) setDraft(loaded)
-  }, [loaded])
 
   // Switching device/subsystem starts fresh.
   useEffect(() => {
     setDirty(false)
   }, [id, sub])
 
-  const config = draft ?? loaded
   if (!config) return null
 
   function onPatch(patch: Partial<RgbMatrixConfig>): void {
-    const next = { ...config!, ...patch } as LightingConfig
-    setDraft(next)
+    // Build on the freshest cache value (the optimistic update writes it
+    // synchronously) so rapid edits across fields accumulate correctly.
+    const base = qc.getQueryData<LightingConfig>(['lighting', id, sub]) ?? config!
+    setMut.mutate({ ...base, ...patch } as LightingConfig)
     setDirty(true)
-    setMut.mutate(next)
   }
 
   function onSave(): void {

@@ -1,10 +1,6 @@
 import type { KeyCode } from '@/xap/types'
 import { KeyCap } from '@/features/keymap/KeyCap'
-
-// Picker cap size — large enough for the KeyCap legend fonts (tuned for ~58px
-// caps) so split/descriptor legends don't clip. Was 42x34 (clipped).
-const PICKER_W = 54
-const PICKER_H = 48
+import { PICKER_CAP_W, PICKER_CAP_H } from './capSize'
 
 interface PickerKeyProps {
   code: KeyCode
@@ -32,7 +28,7 @@ export function PickerKey({ code, hovered, selected, onPick, onHover }: PickerKe
       }}
       aria-pressed={selected}
     >
-      <KeyCap code={code} width={PICKER_W} height={PICKER_H} />
+      <KeyCap code={code} width={PICKER_CAP_W} height={PICKER_CAP_H} />
     </button>
   )
 }
