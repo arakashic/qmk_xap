@@ -1,4 +1,5 @@
 import { useDevices, useDeviceState } from '@/queries/devices'
+import { activeClientKind } from '@/xap/runtime'
 import { useUiStore } from '@/store/ui'
 import type { DeviceSummary } from '@/xap/client'
 import { Card } from '@/components/ui/card'
@@ -44,7 +45,11 @@ export function DevicesPage() {
   // button (web-only) lets you add another keyboard.
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingTop: 18 }}>
-      <ConnectDeviceButton />
+      {activeClientKind() === 'web' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 14px', marginBottom: 18 }}>
+          <ConnectDeviceButton />
+        </div>
+      )}
       {devices?.map((d) =>
         d.status === 'ready' ? (
           <DeviceCardContainer key={d.id} id={d.id} isActive={d.id === activeDeviceId} />
