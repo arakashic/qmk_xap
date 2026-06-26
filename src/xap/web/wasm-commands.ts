@@ -20,7 +20,13 @@ export function makeWasmCommands(ensureClient: () => Promise<XapWasmClient>): Xa
     xapConstantsGet: async () => (await c()).xap_constants(),
 
     // RESULT-wrapped
-    deviceGet: (id: string) => wrap(c().then((x) => x.device_get(id))),
+    // Cached read, not a fresh interrogation. wasm `device_get` re-runs the full
+    // session::initialize() (info + keymap + secure over HID) on every call, so
+    // routing getDeviceState through it re-interrogates the keyboard whenever the
+    // ['device', id] query refetches (e.g. switching to the Devices page). The
+    // one-time interrogation happens in arrive(); here we return the cached state
+    // via `device_state`, matching the desktop `device_get` command.
+    deviceGet: (id: string) => wrap(c().then((x) => x.device_state(id))),
     keymapGet: (id: string, layout: string) => wrap(c().then((x) => x.keymap_get(id, layout))),
     remapKey: (id: string, arg: unknown) => wrap(c().then((x) => x.remap_key(id, arg))),
     keycodeTemplateEncode: (t: unknown) => wrap(c().then((x) => x.keycode_template_encode(t))),
