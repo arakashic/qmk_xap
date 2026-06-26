@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Dev launcher for the redesigned React UI (src-react).
+# Dev launcher for the React UI.
 #
-#   ./scripts/dev.sh web       Browser UI, mock data        -> http://localhost:1430
+#   ./scripts/dev.sh web       Browser UI (WebHID)          -> http://localhost:1430
 #   ./scripts/dev.sh desktop   Tauri desktop app, real (sim) transport
-#   ./scripts/dev.sh both      Browser server + Tauri off one shared React dev server
+#   ./scripts/dev.sh both      Browser server + Tauri off one shared dev server
 #
 # Notes:
-#   - The Tauri shell still targets the OLD Vue frontend; this overrides devUrl to
-#     the React dev server (:1430). Plain `yarn dev` runs the old app.
+#   - `tauri.conf.json` targets the React dev server (:1430); `yarn dev` and
+#     `desktop` start it automatically. For browser mock data use `yarn vite:dev:mock`.
 #   - `desktop` / `both` need the XAP sim running to see a real device.
 #   - If the Tauri window renders black (GPU/DRI3), prefix with SOFT=1.
 set -euo pipefail
@@ -16,9 +16,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 URL="http://localhost:1430"
-# Tauri config patch: point the desktop shell at the React dev server.
-CONFIG_START='{"build":{"beforeDevCommand":"yarn dev:react","devUrl":"http://localhost:1430"}}'
-CONFIG_ATTACH='{"build":{"beforeDevCommand":"","devUrl":"http://localhost:1430"}}'
+# When attaching Tauri to an already-running vite, clear beforeDevCommand so it
+# does not spawn a second dev server (devUrl already points at :1430).
+CONFIG_ATTACH='{"build":{"beforeDevCommand":""}}'
 
 soft_env() {
   if [[ "${SOFT:-}" == "1" ]]; then
@@ -34,16 +34,16 @@ usage() {
 
 case "${1:-}" in
   web)
-    exec yarn dev:react
+    exec yarn vite:dev
     ;;
   desktop)
     soft_env
-    exec yarn tauri dev --config "$CONFIG_START"
+    exec yarn tauri dev
     ;;
   both)
     soft_env
     if ! react_up; then
-      yarn dev:react &
+      yarn vite:dev &
       VITE_PID=$!
       trap 'kill "$VITE_PID" 2>/dev/null || true' EXIT
       until react_up; do sleep 0.3; done

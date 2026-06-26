@@ -3,7 +3,7 @@
     "beforeDevCommand": "yarn vite:dev",
     "beforeBuildCommand": "yarn vite:build",
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420"
+    "devUrl": "http://localhost:1430"
   },
   "bundle": {
     "active": true,
