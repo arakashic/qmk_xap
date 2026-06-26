@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Rail } from '@/shell/Rail'
 import { TopBar } from '@/shell/TopBar'
 import { DevtoolsStrip } from '@/shell/DevtoolsStrip'
@@ -15,13 +15,8 @@ import { useDevices } from '@/queries/devices'
 import { activeClientKind } from '@/xap/runtime'
 import { initWebTransport } from '@/xap/web/web-client'
 
-// How long an empty device list reads as "still arriving" before settling to
-// "No keyboard connected." Covers the desktop hotplug enumeration (~1s after
-// startup) so the arrival window doesn't flash as a failure.
-const SEARCH_GRACE_MS = 2000
-
 export default function App() {
-  const { data: devices, isLoading, isError } = useDevices()
+  const { data: devices, isError } = useDevices()
   const activeDeviceId = useUiStore((s) => s.activeDeviceId)
   const setActiveDevice = useUiStore((s) => s.setActiveDevice)
   const route = useUiStore((s) => s.route)
@@ -35,12 +30,6 @@ export default function App() {
   // desktop/mock. Does not open any device (that needs a user gesture).
   useEffect(() => {
     if (activeClientKind() === 'web') initWebTransport()
-  }, [])
-
-  const [graceElapsed, setGraceElapsed] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setGraceElapsed(true), SEARCH_GRACE_MS)
-    return () => clearTimeout(t)
   }, [])
 
   const ready = devices?.filter((d) => d.status === 'ready') ?? []
@@ -65,15 +54,15 @@ export default function App() {
   }
 
   // Nothing usable yet → a full-screen lifecycle landing instead of the normal
-  // layout. Distinguish first-load/arrival (searching), a handshake in progress
+  // layout. Distinguish a device connecting (searching), a handshake in progress
   // (connecting), a failed interrogation, and a genuinely empty list.
   if (ready.length === 0) {
-    // The "searching" grace window only covers desktop hotplug enumeration. The
-    // web app has no auto-connect, so an empty list lands straight on "No
-    // keyboard connected." with the connect button.
+    // Desktop/mock auto-enumerates continuously and interrogates a keyboard (info
+    // + keymap) before it surfaces to the frontend, so "no ready device" always
+    // reads as "Connecting…" — never a settled "No keyboard connected." That
+    // empty state stays web-only, where connecting needs a user gesture.
     const searching =
-      activeClientKind() !== 'web' &&
-      (isLoading || (!isError && pending.length === 0 && failed.length === 0 && !graceElapsed))
+      activeClientKind() !== 'web' && !isError && pending.length === 0 && failed.length === 0
     return <DeviceLanding searching={searching} errored={isError} pending={pending} failed={failed} />
   }
 

@@ -48,10 +48,14 @@ export function DeviceLanding({ searching, errored, pending, failed, unsupported
       </>
     )
   } else if (searching) {
+    // Desktop/mock only (web gates `searching` off). The backend interrogates a
+    // newly-plugged keyboard (info + keymap) before it surfaces to the frontend,
+    // so this window also covers a device that's connecting — read it as progress
+    // ("Connecting…") rather than absence ("Searching…/No keyboard").
     body = (
       <>
         <Spinner />
-        <div style={{ fontSize: 14 }}>Searching for keyboards…</div>
+        <div style={{ fontSize: 14 }}>Connecting to keyboard…</div>
       </>
     )
   } else if (errored) {

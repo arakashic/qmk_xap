@@ -16,7 +16,7 @@ const dev = (over: Partial<DeviceSummary>): DeviceSummary => ({
 describe('DeviceLanding', () => {
   it('shows the searching state during first load / arrival window', () => {
     render(<DeviceLanding searching errored={false} pending={[]} failed={[]} />)
-    expect(screen.getByText(/searching for keyboards/i)).toBeInTheDocument()
+    expect(screen.getByText(/connecting to keyboard/i)).toBeInTheDocument()
   })
 
   it('shows a connecting state with the device product when a handshake is in progress', () => {
