@@ -7,18 +7,18 @@ It ships as **two front-ends over one shared Rust core**:
 - a **desktop app** ([Tauri](https://tauri.app/) + [hidapi](https://github.com/ruabmbua/hidapi-rs)), and
 - a **browser web app** (the same Rust core compiled to WebAssembly, talking to keyboards over [WebHID](https://developer.mozilla.org/en-US/docs/Web/API/WebHID_API)).
 
-Both run the exact same [Vue 3](https://vuejs.org/) / [Quasar](https://quasar.dev/) UI and the same XAP protocol logic; only the transport differs.
+Both run the exact same [React](https://react.dev/) UI and the same XAP protocol logic; only the transport differs.
 
 Base technologies:
 
--   [Vue 3](https://vuejs.org/) + [Quasar](https://quasar.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/) — the shared frontend
+-   [React](https://react.dev/) + [shadcn/ui](https://ui.shadcn.com/) (on [Radix](https://www.radix-ui.com/)) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/) — the shared frontend (state via [Zustand](https://zustand.docs.pmnd.rs/) + [TanStack Query](https://tanstack.com/query))
 -   [Rust](https://www.rust-lang.org/) — the shared XAP core and both transport adapters
 -   [Tauri 2](https://tauri.app/) + [tauri-specta](https://github.com/oscartbeaumont/tauri-specta) + [hidapi](https://github.com/ruabmbua/hidapi-rs) — the desktop runtime
 -   [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen) + WebHID — the browser runtime
 
 ## Architecture / Design
 
-The guiding principle is that **all authoritative XAP logic lives once, in Rust, with no knowledge of how reports get on or off the wire**. Each platform supplies a thin transport adapter; the UI never talks to a transport directly. The frontend sees a **single command/event surface** (via the `xap-runtime` facade) and is satisfied by **either backend** with identical JSON-shaped values — so the same UI drives the desktop and the browser unchanged.
+The guiding principle is that **all authoritative XAP logic lives once, in Rust, with no knowledge of how reports get on or off the wire**. Each platform supplies a thin transport adapter; the UI never talks to a transport directly. The frontend sees a **single command/event surface** (the `XapClient` interface) and is satisfied by **either backend** with identical JSON-shaped values — so the same UI drives the desktop and the browser unchanged.
 
 ![Architecture: one shared frontend over two backends, both building on a central xap-core](docs/arch.svg)
 
@@ -32,7 +32,7 @@ config:
   layout: elk
 ---
 flowchart TD
-    runtime["<b>Shared Frontend</b><br/>Vue 3 / Quasar / TypeScript<br/>(via the xap-runtime facade)"]
+    runtime["<b>Shared Frontend</b><br/>React / TypeScript<br/>(via the XapClient interface)"]
 
     subgraph DesktopBE["Desktop Backend (Tauri)"]
         tauri["Tauri commands / events"]
@@ -94,20 +94,21 @@ The frontend↔backend bridge is unchanged in spirit: typed [Tauri commands](htt
 
 `xap-wasm` is a `wasm-bindgen` wrapper that bridges the core's push model to JS Promises. The browser opens a device through `navigator.hid` (behind a user-gesture "Connect" button), forwards each `inputreport` event into `handle_input_report(...)`, and exposes the device's `sendReport` as the core's writer. App-level operations (`device_get`, `keymap_get`, `remap_key`, the rgblight/encoder/qmk routes, secure lock/unlock, …) are returned as Promises that resolve when the matching report is ingested.
 
-### The frontend runtime facade (`src/xap-runtime`)
+### The frontend client (`src/xap`)
 
-The UI imports a single facade and never references Tauri or WebHID directly. At load it picks the implementation:
+The UI imports a single `XapClient` interface and never references Tauri or WebHID directly. At startup `selectClient()` picks the implementation:
 
 ```ts
-const isTauri = '__TAURI_INTERNALS__' in window
-export const runtime = isTauri ? tauriRuntime : browserRuntime
+// src/xap/runtime.ts
+const client = await selectClient() // Tauri webview -> desktop client,
+                                    // WebHID browser -> web client, else mock
 ```
 
-`tauri.ts` wires the generated Tauri commands/events; `browser.ts` + `webhid.ts` wire `xap-wasm` over WebHID and expose the same command surface plus a `connectDevice()` gesture. Both yield the identical `Result`-shaped values the views consume, so the pages are transport-agnostic.
+`real-client.ts` maps each `XapClient` method onto the generated Tauri commands; `web/web-client.ts` drives `xap-wasm` over WebHID with the same surface plus a `connectDevice()` gesture; a fixtures-backed `MockXapClient` (gated behind a `VITE_MOCK` build) backs UI-only runs. All yield the identical `Result`-shaped values the pages consume, so the UI is transport-agnostic.
 
 ### Generated code
 
-- **Protocol route types** are generated from the HJSON specs in `xap-specs/assets` into `xap-specs` (shared by all crates). The same route walk also emits each route's per-platform command wrappers: the Tauri RPC commands into `src-tauri` (desktop), and the `XapWasmClient` passthrough methods (`xap-wasm/src/generated.rs`) plus the browser command map (`src/xap-runtime/generated-commands.ts`) for the browser. So the browser's per-route command surface is a generated mirror of the desktop's rather than a hand-written copy — and it is checked against the desktop-derived `XapCommands` type via `satisfies`, so the two surfaces can't silently drift. Only the few multi-step aggregation routes (`device_get`, `keymap_get`, `encoder_keymap_get`, `remap_key`) remain hand-written on each side.
+- **Protocol route types** are generated from the HJSON specs in `xap-specs/assets` into `xap-specs` (shared by all crates). The same route walk also emits each route's per-platform command wrappers: the Tauri RPC commands into `src-tauri` (desktop), and the `XapWasmClient` passthrough methods (`xap-wasm/src/generated.rs`) plus the browser command map (ported into `src/xap/web/wasm-commands.ts`) for the browser. So the browser's per-route command surface is a generated mirror of the desktop's rather than a hand-written copy — and it is checked against the desktop-derived `XapCommands` type via `satisfies`, so the two surfaces can't silently drift. Only the few multi-step aggregation routes (`device_get`, `keymap_get`, `encoder_keymap_get`, `remap_key`) remain hand-written on each side.
 - **TypeScript types** are produced by `tauri-specta` on a debug desktop build and split, at generation time, into `src/generated/xap-types.ts` (pure, transport-free types) and `src/generated/xap-tauri.ts` (the Tauri command/event wrappers). The browser bundle imports only the pure types, so it never pulls Tauri APIs.
 - Serialization on both sides is [Serde](https://serde.rs/); the browser path serializes via `serde_json` so its JSON shape matches the desktop exactly. Raw XAP HID packets are parsed with [binrw](https://binrw.rs/).
 
@@ -115,16 +116,19 @@ export const runtime = isTauri ? tauriRuntime : browserRuntime
 
 ```
 .
-├── src/                       # shared Vue/Quasar frontend (TypeScript)
-│  ├── xap-runtime/            # runtime facade: selects desktop vs browser backend
-│  │  ├── tauri.ts             #   desktop runtime (Tauri commands/events)
-│  │  ├── browser.ts           #   browser runtime (xap-wasm)
-│  │  └── webhid.ts            #   WebHID transport adapter
-│  ├── pages/                  # XAP subsystems as pages (keymap, encoder, rgb, …)
-│  ├── layouts/                # base UI layout
-│  ├── components/
-│  ├── utils/                  # device store, event bus, helpers
-│  └── generated/              # generated TS types + the built xap-wasm package
+├── src/                       # React frontend (TypeScript)
+│  ├── main.tsx                #   app entry: selectClient() + providers
+│  ├── shell/                  #   studio chrome (nav rail, top bar, devtools strip)
+│  ├── features/               #   keymap, keycode-picker, encoders, lighting, devices, devtools
+│  ├── queries/                #   TanStack Query hooks over XapClient
+│  ├── store/                  #   Zustand UI/client state
+│  ├── components/ui/          #   shadcn/Radix chrome primitives
+│  ├── xap/                    #   XapClient interface + transports
+│  │  ├── runtime.ts           #     selectClient(): desktop | web | mock
+│  │  ├── real-client.ts       #     desktop client (generated Tauri commands)
+│  │  ├── web/                 #     browser client (xap-wasm over WebHID)
+│  │  └── mock/                #     fixtures-backed mock (VITE_MOCK only)
+│  └── generated/              #   generated TS types + the built xap-wasm package
 ├── xap-core/                  # shared, transport-independent XAP core (Rust)
 │  └── src/
 │     ├── device.rs            #   submit / ingest / take_response state machine
@@ -159,7 +163,7 @@ The browser build needs the WASM package built first (it is git-ignored — it i
 ```bash
 yarn install
 yarn build:wasm   # wasm-pack build -> src/generated/xap-wasm  (needs the wasm32 target + wasm-pack)
-yarn vite:dev     # serves the web app on http://localhost:1420
+yarn vite:dev     # serves the web app on http://localhost:1430
 ```
 
 Open it in a **Chromium-based browser** (Chrome/Edge — WebHID only) over `localhost` or HTTPS, then click **Connect** and pick your keyboard. Unlike the desktop app, the browser requires this one-time user gesture to grant device access.
@@ -174,7 +178,7 @@ Open it in a **Chromium-based browser** (Chrome/Edge — WebHID only) over `loca
 
 **The frontend:**
 
--   Is as dumb as possible — it presents data and prepares data to send to the backend, through the `xap-runtime` facade only.
+-   Is as dumb as possible — it presents data and prepares data to send to the backend, through the `XapClient` interface only.
 -   Holds as little state as possible and re-fetches from the backend.
 -   Reacts to asynchronous events and syncs its store: device added / removed, secure-status changed, broadcasts.
 
