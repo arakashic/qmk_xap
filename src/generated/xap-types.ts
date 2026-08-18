@@ -42,6 +42,10 @@ export type KeyCode = {
     label?: string | null
     top?: string | null
     bottom?: string | null
+    /**
+     * Cap-only label. `\n` is a hard line break. Display-only: never used for
+     * composite labels, search, or key identity — those use `label`.
+     */
     cap_label?: string | null
     aliases?: string[]
     description?: string | null
