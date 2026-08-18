@@ -4,12 +4,12 @@ import { KeyCap } from '@/features/keymap/KeyCap'
 import { resolveLayout } from './layouts/resolve'
 import type { KeyboardLayoutDef } from './layouts/types'
 import { PICKER_CAP_H, PICKER_GAP } from './capSize'
+import { KeyTooltip } from './KeyTooltip'
 
 export interface BasicKeyboardLayoutProps {
   codes: KeyCode[]
   layout: KeyboardLayoutDef
   onPick: (code: KeyCode) => void
-  onHover: (code: KeyCode | null) => void
 }
 
 // 1u cap = UNIT - GAP, matched to the catalog cap height so keys don't change
@@ -17,7 +17,7 @@ export interface BasicKeyboardLayoutProps {
 const GAP = PICKER_GAP
 const UNIT = PICKER_CAP_H + GAP
 
-export function BasicKeyboardLayout({ codes, layout, onPick, onHover }: BasicKeyboardLayoutProps): React.JSX.Element {
+export function BasicKeyboardLayout({ codes, layout, onPick }: BasicKeyboardLayoutProps): React.JSX.Element {
   const resolved = resolveLayout(codes, layout)
 
   return (
@@ -42,27 +42,28 @@ export function BasicKeyboardLayout({ codes, layout, onPick, onHover }: BasicKey
 
           if (code != null) {
             return (
-              <button
-                key={pos.key}
-                data-testid="layout-key"
-                aria-label={code.key}
-                onClick={() => onPick(code)}
-                // hover/focus outline set inline (mouse via onMouseEnter/Leave, keyboard via onFocus/Blur)
-                onMouseEnter={(e) => { onHover(code); e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
-                onMouseLeave={(e) => { onHover(null); e.currentTarget.style.outline = 'none' }}
-                style={{
-                  ...posStyle,
-                  padding: 0,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--key-radius)',
-                }}
-                onFocus={(e) => { e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
-                onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
-              >
-                <KeyCap code={code} width={w} height={h} />
-              </button>
+              <KeyTooltip key={pos.key} code={code}>
+                <button
+                  data-testid="layout-key"
+                  aria-label={code.key}
+                  onClick={() => onPick(code)}
+                  // hover/focus outline set inline (mouse via onMouseEnter/Leave, keyboard via onFocus/Blur)
+                  onMouseEnter={(e) => { e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.outline = 'none' }}
+                  style={{
+                    ...posStyle,
+                    padding: 0,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    borderRadius: 'var(--key-radius)',
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.outline = '2px solid hsl(var(--primary))' }}
+                  onBlur={(e) => { e.currentTarget.style.outline = 'none' }}
+                >
+                  <KeyCap code={code} width={w} height={h} />
+                </button>
+              </KeyTooltip>
             )
           }
 

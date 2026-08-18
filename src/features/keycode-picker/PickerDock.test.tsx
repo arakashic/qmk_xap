@@ -1,31 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { DetailsStrip } from './DetailsStrip'
 import { BuilderChip } from './BuilderChip'
 import type { PendingFill } from './templateFill'
-
-describe('DetailsStrip', () => {
-  it('renders empty state when no hovered code', () => {
-    render(<DetailsStrip hovered={null} />)
-    expect(screen.getByTestId('details-strip')).toBeInTheDocument()
-    // Empty state — no key displayed
-    expect(screen.queryByTestId('details-key')).toBeNull()
-  })
-
-  it('renders key and description when hovered', () => {
-    render(
-      <DetailsStrip
-        hovered={{ key: 'KC_A', label: 'A', description: 'Letter A' }}
-      />,
-    )
-    expect(screen.getByText('KC_A')).toBeInTheDocument()
-    expect(screen.getByText(/Letter A/)).toBeInTheDocument()
-  })
-
-  it('shows key label only when no description', () => {
-    render(<DetailsStrip hovered={{ key: 'KC_B', label: 'B' }} />)
-    expect(screen.getByText('KC_B')).toBeInTheDocument()
-  })
-})
 
 describe('BuilderChip', () => {
   const ltPending: PendingFill = {

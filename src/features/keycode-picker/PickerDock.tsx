@@ -5,9 +5,9 @@ import { usePickerStore } from '@/store/picker'
 import { useConstants } from '@/queries/constants'
 import { canTabFill } from './templateFill'
 import { PickerCatalog } from './PickerCatalog'
-import { DetailsStrip } from './DetailsStrip'
 import { BuilderChip } from './BuilderChip'
 import { LayoutSwitcher } from './LayoutSwitcher'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 interface PickerDockProps {
   layerCount: number
@@ -40,8 +40,8 @@ const PRIMARY_ACTIVE: CSSProperties = {
 export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) {
   const { data: constants } = useConstants()
   const {
-    dockOpen, dockPinned, pending, hovered, activeTab, query,
-    togglePin, setTab, setQuery, setHovered, setPending,
+    dockOpen, dockPinned, pending, activeTab, query,
+    togglePin, setTab, setQuery, setPending,
   } = usePickerStore()
 
   const tabs = constants?.keycode_view?.tabs ?? []
@@ -256,15 +256,15 @@ export function PickerDock({ layerCount, onPick: onPickProp }: PickerDockProps) 
           }}
         >
           <div style={{ paddingTop: 10 }}>
-            <PickerCatalog
-              tabs={tabs}
-              layerCount={layerCount}
-              activeTab={activeTab}
-              query={query}
-              onPick={onPick}
-              onHover={setHovered}
-            />
-            <DetailsStrip hovered={hovered} />
+            <TooltipProvider delayDuration={300}>
+              <PickerCatalog
+                tabs={tabs}
+                layerCount={layerCount}
+                activeTab={activeTab}
+                query={query}
+                onPick={onPick}
+              />
+            </TooltipProvider>
           </div>
         </div>
       )}

@@ -36,7 +36,6 @@ beforeEach(() => {
     dockPinned: false,
     target: null,
     pending: null,
-    hovered: null,
     activeTab: 'basic',
     query: '',
   })

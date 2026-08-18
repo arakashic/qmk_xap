@@ -1,0 +1,27 @@
+import type { ReactNode } from 'react'
+import type { KeyCode } from '@/xap/types'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+
+interface KeyTooltipProps {
+  code: KeyCode
+  children: ReactNode
+}
+
+/** Wraps a picker cap so hovering or focusing it explains the keycode. */
+export function KeyTooltip({ code, children }: KeyTooltipProps) {
+  const detail = code.description ?? code.label
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>
+        <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 500, fontSize: 10 }}>
+          {code.key}
+        </div>
+        {detail && detail !== code.key && (
+          <div style={{ fontSize: 10, opacity: 0.8 }}>{detail}</div>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+}

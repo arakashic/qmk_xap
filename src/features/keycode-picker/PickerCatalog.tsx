@@ -7,6 +7,7 @@ import { BasicKeyboardLayout } from './BasicKeyboardLayout'
 import { getLayout } from './layouts/index'
 import { usePrefsStore } from '@/store/prefs'
 import { PICKER_CAP_W, PICKER_CAP_H, PICKER_GAP } from './capSize'
+import { KeyTooltip } from './KeyTooltip'
 
 function expandLayerTemplate(kind: string, layerCount: number): KeyCode[] {
   return Array.from({ length: layerCount }, (_, i) => {
@@ -79,7 +80,6 @@ interface PickerHoldKeyProps {
   code: KeyCode
   family: 'modtap' | 'modified'
   onPick: (code: KeyCode) => void
-  onHover: (code: KeyCode | null) => void
 }
 
 const HOLD_STYLE: Record<string, CSSProperties> = {
@@ -87,31 +87,31 @@ const HOLD_STYLE: Record<string, CSSProperties> = {
   modified: { background: 'var(--fam-modified-bg)', border: '1px solid var(--fam-modified-bd)', color: 'var(--fam-modified-fg)' },
 }
 
-function PickerHoldKey({ code, family, onPick, onHover }: PickerHoldKeyProps) {
+function PickerHoldKey({ code, family, onPick }: PickerHoldKeyProps) {
   return (
-    <button
-      type="button"
-      onClick={() => onPick(code)}
-      onMouseEnter={() => onHover(code)}
-      onMouseLeave={() => onHover(null)}
-      style={{
-        width: PICKER_CAP_W,
-        height: PICKER_CAP_H,
-        padding: 0,
-        cursor: 'pointer',
-        borderRadius: 'var(--cap-radius)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        ...HOLD_STYLE[family],
-      }}
-    >
-      <span style={{ fontSize: 7, lineHeight: 1, marginBottom: 1, color: 'inherit', opacity: 0.8 }}>hold</span>
-      <span style={{ fontSize: 12, fontWeight: 600 }}>{code.label ?? code.key}</span>
-    </button>
+    <KeyTooltip code={code}>
+      <button
+        type="button"
+        onClick={() => onPick(code)}
+        style={{
+          width: PICKER_CAP_W,
+          height: PICKER_CAP_H,
+          padding: 0,
+          cursor: 'pointer',
+          borderRadius: 'var(--cap-radius)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          ...HOLD_STYLE[family],
+        }}
+      >
+        <span style={{ fontSize: 7, lineHeight: 1, marginBottom: 1, color: 'inherit', opacity: 0.8 }}>hold</span>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>{code.label ?? code.key}</span>
+      </button>
+    </KeyTooltip>
   )
 }
 
@@ -121,7 +121,6 @@ interface PickerCatalogProps {
   activeTab: string
   query: string
   onPick: (code: KeyCode) => void
-  onHover: (code: KeyCode | null) => void
 }
 
 export function PickerCatalog({
@@ -130,7 +129,6 @@ export function PickerCatalog({
   activeTab,
   query,
   onPick,
-  onHover,
 }: PickerCatalogProps) {
   const basicLayout = usePrefsStore((s) => s.basicLayout)
   const tab = tabs.find((t) => t.id === activeTab) ?? tabs[0]
@@ -155,7 +153,7 @@ export function PickerCatalog({
                 )}
                 <div style={{ display: 'flex', gap: PICKER_GAP, flexWrap: 'wrap' }}>
                   {filtered.map((code) => (
-                    <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
+                    <PickerKey key={code.key} code={code} onPick={onPick} />
                   ))}
                 </div>
               </div>
@@ -173,7 +171,6 @@ export function PickerCatalog({
                 codes={sg.codes}
                 layout={getLayout(basicLayout)}
                 onPick={onPick}
-                onHover={onHover}
               />
             </div>
           )
@@ -204,9 +201,9 @@ export function PickerCatalog({
               <div style={{ display: 'flex', gap: PICKER_GAP, flexWrap: 'wrap' }}>
                 {filtered.map((code) =>
                   isModTemplate ? (
-                    <PickerHoldKey key={code.key} code={code} family={holdFamily} onPick={onPick} onHover={onHover} />
+                    <PickerHoldKey key={code.key} code={code} family={holdFamily} onPick={onPick} />
                   ) : (
-                    <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
+                    <PickerKey key={code.key} code={code} onPick={onPick} />
                   )
                 )}
               </div>
@@ -225,7 +222,7 @@ export function PickerCatalog({
             )}
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
               {filtered.map((code) => (
-                <PickerKey key={code.key} code={code} onPick={onPick} onHover={onHover} />
+                <PickerKey key={code.key} code={code} onPick={onPick} />
               ))}
             </div>
           </div>

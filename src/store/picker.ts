@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { KeyCode } from '@/xap/types'
 import type { PickerTarget, PendingFill } from '@/features/keycode-picker/templateFill'
 
 interface PickerState {
@@ -7,7 +6,6 @@ interface PickerState {
   dockPinned: boolean
   target: PickerTarget | null
   pending: PendingFill | null
-  hovered: KeyCode | null
   activeTab: string
   query: string
   open(target: PickerTarget): void
@@ -17,7 +15,6 @@ interface PickerState {
   togglePin(): void
   setTab(id: string): void
   setQuery(q: string): void
-  setHovered(c: KeyCode | null): void
   setPending(p: PendingFill | null): void
   /** Clear all selection state on device switch (keeps the pin preference). */
   reset(): void
@@ -28,16 +25,14 @@ export const usePickerStore = create<PickerState>((set) => ({
   dockPinned: false,
   target: null,
   pending: null,
-  hovered: null,
   activeTab: 'basic',
   query: '',
-  open: (target) => set({ dockOpen: true, target, pending: null, query: '', hovered: null }),
+  open: (target) => set({ dockOpen: true, target, pending: null, query: '' }),
   close: () => set((s) => s.dockPinned ? s : { dockOpen: false, target: null, pending: null }),
   deselect: () => set((s) => ({ target: null, pending: null, dockOpen: s.dockPinned })),
   togglePin: () => set((s) => ({ dockPinned: !s.dockPinned })),
   setTab: (id) => set({ activeTab: id, query: '' }),
   setQuery: (q) => set({ query: q }),
-  setHovered: (c) => set({ hovered: c }),
   setPending: (p) => set({ pending: p }),
-  reset: () => set({ dockOpen: false, target: null, pending: null, hovered: null, query: '', activeTab: 'basic' }),
+  reset: () => set({ dockOpen: false, target: null, pending: null, query: '', activeTab: 'basic' }),
 }))

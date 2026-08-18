@@ -1,22 +1,28 @@
+import type { ReactElement } from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { PickerCatalog } from './PickerCatalog'
 import { ugoConstants } from '@/xap/mock/constants'
 
 const noop = () => {}
+
+function renderCatalog(ui: ReactElement) {
+  return render(<TooltipProvider delayDuration={0}>{ui}</TooltipProvider>)
+}
 
 const tabs = ugoConstants.keycode_view.tabs
 const basicTabId = tabs.find((t) => t.subgroups.some((s) => s.render_mode === 'ansi'))!.id
 
 // Task-4 integration tests (verbatim from brief)
 it('Basic tab with no query renders the physical layout (positioned keys), not flat rows', () => {
-  render(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="" onPick={() => {}} onHover={() => {}} />)
+  renderCatalog(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="" onPick={() => {}} />)
   // physical layout renders matched keys with the layout-key testid
   expect(screen.getAllByTestId('layout-key').length).toBeGreaterThan(20)
 })
 
 it('Basic tab with a query renders the flat filtered grid (no positioned canvas)', () => {
-  render(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="esc" onPick={() => {}} onHover={() => {}} />)
+  renderCatalog(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="esc" onPick={() => {}} />)
   expect(screen.queryAllByTestId('layout-key')).toHaveLength(0)
   expect(screen.getByText('Esc')).toBeInTheDocument()
 })
@@ -24,14 +30,13 @@ it('Basic tab with a query renders the flat filtered grid (no positioned canvas)
 // Pre-existing tests (kept)
 describe('PickerCatalog', () => {
   it('basic tab (render_mode:ansi) renders ANSI keys', () => {
-    render(
+    renderCatalog(
       <PickerCatalog
         tabs={ugoConstants.keycode_view.tabs}
         layerCount={4}
         activeTab="basic"
         query=""
         onPick={noop}
-        onHover={noop}
       />,
     )
     // physical layout renders buttons with layout-key testid
@@ -43,14 +48,13 @@ describe('PickerCatalog', () => {
   })
 
   it('layer tab expands MO(0)..MO(layerCount-1)', () => {
-    render(
+    renderCatalog(
       <PickerCatalog
         tabs={ugoConstants.keycode_view.tabs}
         layerCount={4}
         activeTab="layer"
         query=""
         onPick={noop}
-        onHover={noop}
       />,
     )
     // MO subgroup should expand 4 keys labeled L0..L3
@@ -61,14 +65,13 @@ describe('PickerCatalog', () => {
   })
 
   it('modtap tab expands MT mods', () => {
-    render(
+    renderCatalog(
       <PickerCatalog
         tabs={ugoConstants.keycode_view.tabs}
         layerCount={4}
         activeTab="modtap"
         query=""
         onPick={noop}
-        onHover={noop}
       />,
     )
     // MT subgroup has Ctrl, Shift, Alt, GUI, Meh, Hyper (human-readable labels)
@@ -77,14 +80,13 @@ describe('PickerCatalog', () => {
   })
 
   it('query filters codes in plain grid', () => {
-    render(
+    renderCatalog(
       <PickerCatalog
         tabs={ugoConstants.keycode_view.tabs}
         layerCount={4}
         activeTab="lighting"
         query="hue"
         onPick={noop}
-        onHover={noop}
       />,
     )
     // Hue+ and Hue- should appear, RGB Toggle should not
