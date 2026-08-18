@@ -15,7 +15,9 @@ export function KeyTooltip({ code, children }: KeyTooltipProps) {
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>
-        <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 500, fontSize: 11 }}>
+        {/* Brighter than the inherited rail foreground so the keycode name
+            leads and the description reads as secondary. */}
+        <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 500, fontSize: 11, color: '#fff' }}>
           {code.key}
         </div>
         {detail && detail !== code.key && (

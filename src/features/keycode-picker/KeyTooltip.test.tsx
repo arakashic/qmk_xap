@@ -25,9 +25,10 @@ describe('KeyTooltip', () => {
     })
   })
 
-  // The project defines no --popover token, so shadcn's stock bg-popover
-  // renders transparent and the tooltip is unreadable over the key grid.
-  it('paints an opaque background using a token this project defines', async () => {
+  // Two failure modes guarded here: shadcn's stock bg-popover produces nothing
+  // (no --popover token in this project) so the tooltip renders transparent,
+  // and a light surface would blend into the white key caps behind it.
+  it('paints an opaque dark surface distinct from the white key caps', async () => {
     renderTip({ key: 'KC_A', label: 'A' })
 
     fireEvent.focus(screen.getByRole('button', { name: 'cap' }))
@@ -37,8 +38,9 @@ describe('KeyTooltip', () => {
       if (!el) throw new Error('tooltip not open')
       return el
     })
-    expect(tip.className).toContain('bg-background')
+    expect(tip.className).toContain('bg-[var(--rail)]')
     expect(tip.className).not.toContain('bg-popover')
+    expect(tip.className).not.toContain('bg-background')
   })
 
   it('falls back to the label when there is no description', async () => {

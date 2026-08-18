@@ -15,10 +15,11 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        // bg-background / text-foreground, not shadcn's stock bg-popover: this
-        // project defines no --popover token, so bg-popover renders transparent.
-        // Matches popover.tsx.
-        'z-50 max-w-xs rounded-md border bg-background px-2.5 py-1.5 text-foreground shadow-md',
+        // Dark surface, reusing the nav rail's colors: key caps are white, so a
+        // light tooltip would read as part of the grid. Not shadcn's stock
+        // bg-popover — this project defines no --popover token, so that class
+        // produces nothing and the tooltip renders transparent.
+        'z-50 max-w-xs rounded-md border border-transparent bg-[var(--rail)] px-2.5 py-1.5 text-[var(--rail-fg)] shadow-md',
         className,
       )}
       {...props}
