@@ -35,3 +35,30 @@ it('holeZone=tap on a split cap renders amber dashed "?" tap zone', () => {
   expect(screen.getByTestId('hole-zone')).toBeInTheDocument()
   expect(screen.getByText('?')).toBeInTheDocument()
 })
+
+it('renders a hard-broken cap_label as two lines', () => {
+  render(<KeyCap code={{ key: 'KC_BACKSPACE', label: 'Backspace', cap_label: 'Back\nSpace' }} />)
+  const legend = screen.getByTestId('cap-legend')
+  expect(legend.textContent).toBe('Back\nSpace')
+  expect(legend).toHaveStyle({ whiteSpace: 'pre' })
+})
+
+it('wraps a long multi-word legend onto several lines', () => {
+  render(<KeyCap code={{ key: 'KC_X', label: 'Backlight Step' }} />)
+  expect(screen.getByTestId('cap-legend').textContent).toBe('Backlight\nStep')
+})
+
+it('wraps the tap zone of a split cap', () => {
+  render(
+    <KeyCap
+      code={{
+        key: 'LCTL_T(Backspace)',
+        label: 'LCTL_T(Backspace)',
+        top: 'LCTL_T',
+        bottom: 'Back\nSpace',
+        template: { kind: 'ModTap', mod_mask: 0x01, tap_kc: 0x2a },
+      }}
+    />,
+  )
+  expect(screen.getByTestId('cap-tap').textContent).toBe('Back\nSpace')
+})

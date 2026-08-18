@@ -135,15 +135,16 @@ export function legendOf(code: KeyCode): LegendModel {
 
   // Group prefix (e.g. rgb, bl, media) — but NOT basic keys (KC_* keys carry group in real catalog)
   if (code.group && !code.key.startsWith('KC_')) {
-    const payload = code.label ?? code.key
+    const payload = code.cap_label ?? code.label ?? code.key
     return { kind: 'prefix', tag: code.group, payload }
   }
 
-  // Basic key with a label
+  // Basic key with a label. cap_label carries the cap-only wrapped form.
   if (code.label) {
+    const label = code.cap_label ?? code.label
     return code.top
-      ? { kind: 'basic', label: code.label, top: code.top }
-      : { kind: 'basic', label: code.label }
+      ? { kind: 'basic', label, top: code.top }
+      : { kind: 'basic', label }
   }
 
   // Fallback: hex

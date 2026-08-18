@@ -1,6 +1,7 @@
 import type { KeyCode } from '@/xap/types'
 import { legendOf } from './legend'
 import type { LegendModel } from './legend'
+import { fitLines, LINE_RATIO } from './capFit'
 
 // Cap size for the legend specimen (used standalone / in picker)
 const CAP_SIZE = 58
@@ -65,6 +66,8 @@ const HOLD_STYLE: Record<string, React.CSSProperties> = {
 function renderLegend(legend: LegendModel, live: boolean, width: number, height: number, resolvedCode?: KeyCode, holeZone?: 'tap'): React.ReactNode {
   switch (legend.kind) {
     case 'basic': {
+      // Reserve vertical room for the small top-corner tag when present.
+      const fit = fitLines(legend.label, width, height - (legend.top ? 8 : 0))
       return (
         <>
           {legend.top && (
@@ -72,19 +75,25 @@ function renderLegend(legend: LegendModel, live: boolean, width: number, height:
               {legend.top}
             </span>
           )}
-          {legend.label}
+          <span
+            data-testid="cap-legend"
+            style={{ fontSize: fit.fontSize, lineHeight: LINE_RATIO, whiteSpace: 'pre', textAlign: 'center' }}
+          >
+            {fit.lines.join('\n')}
+          </span>
         </>
       )
     }
 
     case 'split': {
       const holdStyle = HOLD_STYLE[legend.family] ?? {}
+      const tapFit = fitLines(legend.tap, width, height * 0.6)
       return (
         <>
           <div style={{ width: '100%', height: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, ...holdStyle }}>
             {legend.hold}
           </div>
-          <div style={{ width: '100%', height: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
+          <div style={{ width: '100%', height: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {holeZone === 'tap'
               ? (
                   <span
@@ -101,7 +110,14 @@ function renderLegend(legend: LegendModel, live: boolean, width: number, height:
                     ?
                   </span>
                 )
-              : legend.tap}
+              : (
+                  <span
+                    data-testid="cap-tap"
+                    style={{ fontSize: tapFit.fontSize, lineHeight: LINE_RATIO, whiteSpace: 'pre', textAlign: 'center' }}
+                  >
+                    {tapFit.lines.join('\n')}
+                  </span>
+                )}
           </div>
         </>
       )
@@ -118,10 +134,17 @@ function renderLegend(legend: LegendModel, live: boolean, width: number, height:
     }
 
     case 'prefix': {
+      // The tag occupies ~11px above the payload.
+      const fit = fitLines(legend.payload, width, height - 11, 12)
       return (
         <>
           <span style={{ fontSize: 8, color: '#94a3b8', marginBottom: 3 }}>{legend.tag}</span>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>{legend.payload}</span>
+          <span
+            data-testid="cap-legend"
+            style={{ fontSize: fit.fontSize, fontWeight: 600, lineHeight: LINE_RATIO, whiteSpace: 'pre', textAlign: 'center' }}
+          >
+            {fit.lines.join('\n')}
+          </span>
         </>
       )
     }

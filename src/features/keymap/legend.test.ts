@@ -95,6 +95,18 @@ describe('legendOf', () => {
     expect(result.kind).not.toBe('prefix')
   })
 
+  it('basic: cap_label wins over label', () =>
+    expect(legendOf({ key: 'KC_BACKSPACE', label: 'Backspace', cap_label: 'Back\nSpace' }))
+      .toMatchObject({ kind: 'basic', label: 'Back\nSpace' }))
+
+  it('basic: falls back to label when cap_label is absent', () =>
+    expect(legendOf({ key: 'KC_A', label: 'A' }))
+      .toMatchObject({ kind: 'basic', label: 'A' }))
+
+  it('prefix: cap_label wins over label', () =>
+    expect(legendOf({ key: 'BL_STEP', group: 'backlight', label: 'Backlight Step', cap_label: 'Back\nlight' }))
+      .toMatchObject({ kind: 'prefix', tag: 'backlight', payload: 'Back\nlight' }))
+
 })
 
 describe('modName', () => {
