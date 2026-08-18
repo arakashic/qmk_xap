@@ -39,6 +39,35 @@ describe('legendOf', () => {
     }
   })
 
+  // Real firmware decodes MT/LT with `label` = the combined macro form
+  // (e.g. "LCTL_T(S)") and `bottom` = the tap keycode label. The split cap's
+  // tap zone must show the tap keycode, not the whole mod-tap keycode.
+  it('ModTap from real firmware: tap zone uses `bottom`, not the combined label', () => {
+    const result = legendOf({
+      code: 0x2116,
+      key: 'LCTL_T(S)',
+      label: 'LCTL_T(S)',
+      top: 'LCTL_T',
+      bottom: 'S',
+      group: 'mod_tap',
+      template: { kind: 'ModTap', mod_mask: 0x01, tap_kc: 0x16 },
+    })
+    expect(result).toMatchObject({ kind: 'split', family: 'modtap', hold: 'Ctrl', tap: 'S' })
+  })
+
+  it('LayerTap from real firmware: tap zone uses `bottom`, not the combined label', () => {
+    const result = legendOf({
+      code: 0x4107,
+      key: 'LT(1, D)',
+      label: 'LT(1, D)',
+      top: 'LT(1)',
+      bottom: 'D',
+      group: 'layer_tap',
+      template: { kind: 'LayerTap', layer: 1, tap_kc: 0x07 },
+    })
+    expect(result).toMatchObject({ kind: 'split', family: 'layer', hold: 'L1', tap: 'D' })
+  })
+
   it('OneShotMod: kind=descriptor, family=modtap, readable payload', () => {
     const result = legendOf({
       key: 'OSM(MOD_LSFT)',

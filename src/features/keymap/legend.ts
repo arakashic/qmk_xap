@@ -74,6 +74,13 @@ function isNoOp(code: KeyCode): boolean {
   return code.key === 'KC_NO' || (code.aliases?.includes('KC_NO') ?? false) || code.code === 0x0000
 }
 
+// Tap zone of a split cap. The decoder puts the tap keycode's own label in
+// `bottom`; `label` holds the combined macro form (e.g. "LCTL_T(S)"), which
+// must not leak into the tap zone.
+function tapLabel(code: KeyCode, tap_kc: number | null): string {
+  return code.bottom ?? code.label ?? String(tap_kc ?? '?')
+}
+
 export function legendOf(code: KeyCode): LegendModel {
   // Special transparent / no-op keys
   if (isTransparent(code)) return { kind: 'trns' }
@@ -89,14 +96,14 @@ export function legendOf(code: KeyCode): LegendModel {
           kind: 'split',
           family: 'layer',
           hold: `L${tmpl.layer}`,
-          tap: code.label ?? String(tmpl.tap_kc ?? '?'),
+          tap: tapLabel(code, tmpl.tap_kc),
         }
       case 'ModTap':
         return {
           kind: 'split',
           family: 'modtap',
           hold: modName(tmpl.mod_mask),
-          tap: code.label ?? String(tmpl.tap_kc ?? '?'),
+          tap: tapLabel(code, tmpl.tap_kc),
         }
       case 'LayerOp': {
         const verb = LAYER_OP_VERB[tmpl.op] ?? tmpl.op

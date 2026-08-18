@@ -59,20 +59,22 @@ const KC_A: KeyCode = { code: 4, key: 'KC_A', label: 'A' }
 // 2. ModTap: hold=Left Ctrl, tap=S  (mod_mask=0x01 = MOD_LCTL)
 const MT_LCTL_S: KeyCode = {
   code: 0x6104,   // MT(MOD_LCTL, KC_S) — approximate
-  key: 'MT(MOD_LCTL,KC_S)',
-  label: 'S',
-  top: 'Ctrl',
-  group: 'ModTap',
+  key: 'LCTL_T(S)',
+  label: 'LCTL_T(S)',
+  top: 'LCTL_T',
+  bottom: 'S',
+  group: 'mod_tap',
   template: { kind: 'ModTap', mod_mask: 0x01, tap_kc: 0x16 },
 }
 
 // 3. LayerTap: hold=layer 1, tap=D
 const LT_1_D: KeyCode = {
   code: 0x4103,
-  key: 'LT(1,KC_D)',
-  label: 'D',
-  bottom: 'L1',
-  group: 'LayerTap',
+  key: 'LT(1, D)',
+  label: 'LT(1, D)',
+  top: 'LT(1)',
+  bottom: 'D',
+  group: 'layer_tap',
   template: { kind: 'LayerTap', layer: 1, tap_kc: 0x07 },
 }
 
