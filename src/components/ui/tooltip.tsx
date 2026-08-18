@@ -15,7 +15,10 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 max-w-xs rounded-md border bg-popover px-2.5 py-1.5 text-popover-foreground shadow-md',
+        // bg-background / text-foreground, not shadcn's stock bg-popover: this
+        // project defines no --popover token, so bg-popover renders transparent.
+        // Matches popover.tsx.
+        'z-50 max-w-xs rounded-md border bg-background px-2.5 py-1.5 text-foreground shadow-md',
         className,
       )}
       {...props}
