@@ -15,11 +15,11 @@ export function KeyTooltip({ code, children }: KeyTooltipProps) {
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>
-        <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 500, fontSize: 10 }}>
+        <div style={{ fontFamily: '"JetBrains Mono", monospace', fontWeight: 500, fontSize: 11 }}>
           {code.key}
         </div>
         {detail && detail !== code.key && (
-          <div style={{ fontSize: 10, opacity: 0.8 }}>{detail}</div>
+          <div style={{ fontSize: 11, opacity: 0.8 }}>{detail}</div>
         )}
       </TooltipContent>
     </Tooltip>

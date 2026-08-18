@@ -107,6 +107,16 @@ describe('legendOf', () => {
     expect(legendOf({ key: 'BL_STEP', group: 'backlight', label: 'Backlight Step', cap_label: 'Back\nlight' }))
       .toMatchObject({ kind: 'prefix', tag: 'backlight', payload: 'Back\nlight' }))
 
+  // Rust's basic_kc_cap_label guards on `!cap.is_empty()`; `??` alone does
+  // not catch "", so an empty cap_label must still fall back to label.
+  it('basic: empty cap_label falls back to label', () =>
+    expect(legendOf({ key: 'KC_A', label: 'A', cap_label: '' }))
+      .toMatchObject({ kind: 'basic', label: 'A' }))
+
+  it('prefix: empty cap_label falls back to label', () =>
+    expect(legendOf({ key: 'BL_STEP', group: 'backlight', label: 'Backlight Step', cap_label: '' }))
+      .toMatchObject({ kind: 'prefix', tag: 'backlight', payload: 'Backlight Step' }))
+
 })
 
 describe('modName', () => {

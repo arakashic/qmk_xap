@@ -198,10 +198,16 @@
     // Per-key overrides. Keys are exact `key` field names from the target
     // version's generated hjson. Descriptions are sourced from the QMK docs
     // (qmk_firmware/docs/keycodes_basic.md and keycodes_magic.md).
+    //
+    // cap_label is a display-only, cap-only override: `\n` is a hard line
+    // break for wrapping on the keycap. `label` stays single-line since it
+    // also feeds composite macro labels and fuzzy search. cap_label may also
+    // just abbreviate a word that won't fit (KC_SYSTEM_REQUEST shortens
+    // "Attention" to "Attn").
     "keycodes": {
         // Blank behavior keys shown in Basic > Blank immediately below ANSI.
         "KC_NO":          { "label": "", "description": "Ignore this key (NOOP)." },
-        "KC_TRANSPARENT": { "cap_label": "Trans\nparent", "description": "Use the next lowest non-transparent key." },
+        "KC_TRANSPARENT": { "description": "Use the next lowest non-transparent key." },
 
         // Letters
         "KC_A": { "description": "a and A" },

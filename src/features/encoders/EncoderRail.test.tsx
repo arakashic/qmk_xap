@@ -75,6 +75,26 @@ describe('EncoderRail', () => {
     }
   })
 
+  it('preserves a cap_label hard line break in a slot instead of collapsing it to a space', () => {
+    // legendOf's 'basic' branch carries cap_label's \n straight into
+    // LegendModel.label; the slot span must render it as `white-space: pre`
+    // so the break survives instead of collapsing to a space (CSS default).
+    const encoders: EncoderSlots[] = [
+      { ccw: { key: 'KC_BACKSPACE', label: 'Backspace', cap_label: 'Back\nSpace' }, cw: { key: 'KC_A', label: 'A' } },
+    ]
+    render(
+      <EncoderRail
+        layer={0}
+        encoders={encoders}
+        selectedTarget={null}
+        pendingFill={null}
+        onSelectSlot={() => {}}
+      />,
+    )
+    const span = screen.getByText((_, el) => el?.textContent === 'Back\nSpace')
+    expect(span).toHaveStyle({ whiteSpace: 'pre' })
+  })
+
   it('does not apply pending styling when pendingFill layer differs from rail layer', () => {
     // PendingFill targets enc 0 CCW on layer 0, but rail is layer 1.
     // No hole-zone should appear.

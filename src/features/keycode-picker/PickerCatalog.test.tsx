@@ -27,6 +27,16 @@ it('Basic tab with a query renders the flat filtered grid (no positioned canvas)
   expect(screen.getByText('Esc')).toBeInTheDocument()
 })
 
+// End-to-end coverage for the mock catalog's seeded cap_label (KC_BACKSPACE):
+// proves cap_label actually reaches the rendered cap through the real
+// PickerCatalog -> BasicKeyboardLayout -> KeyCap -> legendOf path, not just
+// the Rust catalog and the KeyCap unit test in isolation.
+it('Basic tab physical layout renders the mock KC_BACKSPACE cap_label wrapped', () => {
+  renderCatalog(<PickerCatalog tabs={tabs} layerCount={8} activeTab={basicTabId} query="" onPick={() => {}} />)
+  const legend = screen.getByText((_, el) => el?.getAttribute('data-testid') === 'cap-legend' && el?.textContent === 'Back\nSpace')
+  expect(legend).toBeInTheDocument()
+})
+
 // Pre-existing tests (kept)
 describe('PickerCatalog', () => {
   it('basic tab (render_mode:ansi) renders ANSI keys', () => {

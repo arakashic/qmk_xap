@@ -9,8 +9,8 @@ import type {
 // Basic tab — ANSI letters, digits, specials, mods
 // ---------------------------------------------------------------------------
 
-function kc(key: string, label: string, group?: string): KeyCode {
-  return { key, label, group: group ?? null }
+function kc(key: string, label: string, group?: string, cap_label?: string): KeyCode {
+  return { key, label, group: group ?? null, ...(cap_label !== undefined ? { cap_label } : {}) }
 }
 
 const basicCodes: KeyCode[] = [
@@ -23,7 +23,7 @@ const basicCodes: KeyCode[] = [
   kc('KC_TAB', 'Tab'),
   kc('KC_ESC', 'Esc'),
   kc('KC_SPACE', 'Space'),
-  kc('KC_BSPC', 'Bksp'),
+  kc('KC_BACKSPACE', 'Backspace', undefined, 'Back\nSpace'),
   // Modifiers
   kc('KC_LSFT', 'LShift'),
   kc('KC_RSFT', 'RShift'),

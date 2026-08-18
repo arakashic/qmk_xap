@@ -65,6 +65,9 @@ function Slot({ code, direction, isSelected, isPending, onClick }: SlotProps) {
     color: '#1e3a8a',
     background: isSelected ? 'hsl(var(--primary) / 0.08)' : '#fbfdff',
     marginTop: 2,
+    // LegendModel strings (label/tap/payload) may carry a cap-only `\n` from
+    // cap_label; without `pre`, CSS collapses it to a space.
+    whiteSpace: 'pre',
   }
 
   return (
