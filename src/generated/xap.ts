@@ -517,6 +517,7 @@ export type KeyCode = {
     label?: string | null
     top?: string | null
     bottom?: string | null
+    cap_label?: string | null
     aliases?: string[]
     description?: string | null
     template?: KeycodeTemplate | null

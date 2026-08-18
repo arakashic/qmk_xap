@@ -80,6 +80,8 @@ pub struct KeyOverride {
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
+    pub cap_label: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub hidden: Option<bool>,
@@ -140,6 +142,9 @@ pub fn apply_overrides(
         };
         if let Some(label) = &ov.label {
             kc.label = Some(label.clone());
+        }
+        if let Some(cap_label) = &ov.cap_label {
+            kc.cap_label = Some(cap_label.clone());
         }
         if let Some(desc) = &ov.description {
             kc.description = Some(desc.clone());
@@ -407,6 +412,7 @@ mod test {
             label: Some(label.to_owned()),
             top: None,
             bottom: None,
+            cap_label: None,
             aliases: vec![],
             description: None,
             template: None,
@@ -466,6 +472,28 @@ mod test {
         assert!(hidden.contains(&0x0001));
         let trans = codes.get(&0x0001).unwrap();
         assert_eq!(trans.label, Some("Transparent".to_owned()));
+    }
+
+    #[test]
+    fn cap_label_override_is_applied() {
+        let mut codes = HashMap::new();
+        codes.insert(0x002A, kc(0x002A, "KC_BACKSPACE", "basic", "Backspace"));
+        let name_to_code = build_name_to_code(&codes);
+        let display: KeycodeDisplay = deser_hjson::from_str(
+            r#"{
+                "target_keycode_version": "0.0.8",
+                "tabs": [],
+                "keycodes": { "KC_BACKSPACE": { "cap_label": "Back\nSpace" } }
+            }"#,
+        )
+        .unwrap();
+
+        apply_overrides(&mut codes, &display, &name_to_code);
+
+        let kc = &codes[&0x002A];
+        assert_eq!(kc.cap_label.as_deref(), Some("Back\nSpace"));
+        // `label` must stay single-line: it feeds composite labels and search.
+        assert_eq!(kc.label.as_deref(), Some("Backspace"));
     }
 
     #[test]

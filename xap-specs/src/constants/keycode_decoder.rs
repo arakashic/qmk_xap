@@ -104,11 +104,12 @@ fn layer_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let layer = ((code >> 8) & 0x0F) as u8;
     let basic = (code & 0xFF) as u8;
     let kc_label = basic_kc_label(basic, lookup);
+    let kc_cap = basic_kc_cap_label(basic, lookup);
     let mut kc = decoded_split(
         code,
         format!("LT({layer}, {kc_label})"),
         format!("LT({layer})"),
-        kc_label,
+        kc_cap,
         "layer_tap",
     );
     kc.template = Some(KeycodeTemplate::LayerTap { layer, tap_kc: Some(basic) });
@@ -119,12 +120,13 @@ fn mod_tap(code: u16, lookup: &HashMap<u16, KeyCode>) -> KeyCode {
     let mods = ((code >> 8) & 0x1F) as u8;
     let basic = (code & 0xFF) as u8;
     let kc_label = basic_kc_label(basic, lookup);
+    let kc_cap = basic_kc_cap_label(basic, lookup);
     let mut kc = if mods == 0 {
         // Degenerate MT(0, kc) - no meaningful hold action, render as single label.
         decoded(code, format!("MT(0, {kc_label})"), "mod_tap")
     } else {
         let top = format!("{}_T", mods_name(mods));
-        decoded_split(code, format!("{top}({kc_label})"), top, kc_label, "mod_tap")
+        decoded_split(code, format!("{top}({kc_label})"), top, kc_cap, "mod_tap")
     };
     kc.template = Some(KeycodeTemplate::ModTap { mod_mask: mods, tap_kc: Some(basic) });
     kc
@@ -159,6 +161,7 @@ fn decoded(code: u16, label: String, group: &str) -> KeyCode {
         label: Some(label),
         top: None,
         bottom: None,
+        cap_label: None,
         aliases: Vec::new(),
         description: None,
         template: None,
@@ -182,6 +185,7 @@ fn decoded_split(
         label: Some(label),
         top: Some(top),
         bottom: Some(bottom),
+        cap_label: None,
         aliases: Vec::new(),
         description: None,
         template: None,
@@ -206,6 +210,20 @@ fn basic_kc_label(kc: u8, lookup: &HashMap<u16, KeyCode>) -> String {
             .to_owned();
     }
     format!("0x{kc:02X}")
+}
+
+/// Cap-facing label for the embedded basic keycode. Prefers the catalog's
+/// `cap_label` (which may contain `\n`), else falls back to `basic_kc_label`.
+/// Only `bottom` uses this — the combined macro label stays single-line.
+fn basic_kc_cap_label(kc: u8, lookup: &HashMap<u16, KeyCode>) -> String {
+    if let Some(found) = lookup.get(&(kc as u16)) {
+        if let Some(cap) = found.cap_label.as_deref() {
+            if !cap.is_empty() {
+                return cap.to_owned();
+            }
+        }
+    }
+    basic_kc_label(kc, lookup)
 }
 
 /// Return the QMK-style name for a 5-bit modifier field.
@@ -271,6 +289,7 @@ mod tests {
                 label: Some("".into()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -285,6 +304,7 @@ mod tests {
                 label: Some("Transparent".into()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -299,6 +319,7 @@ mod tests {
                 label: Some("A".into()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -313,6 +334,7 @@ mod tests {
                 label: Some("F".into()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -327,6 +349,7 @@ mod tests {
                 label: Some("Space".into()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -342,6 +365,7 @@ mod tests {
                 label: None,
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -537,6 +561,56 @@ mod tests {
         let kc = decode(0x5063);
         assert_eq!(kc.top.as_deref(), Some("LM(3)"));
         assert_eq!(kc.bottom.as_deref(), Some("LCS"));
+    }
+
+    #[test]
+    fn mod_tap_bottom_prefers_cap_label() {
+        let mut lookup = HashMap::new();
+        let bspc = KeyCode {
+            code: 0x002A,
+            key: "KC_BACKSPACE".to_owned(),
+            group: Some("basic".to_owned()),
+            label: Some("Backspace".to_owned()),
+            top: None,
+            bottom: None,
+            cap_label: Some("Back\nSpace".to_owned()),
+            aliases: Vec::new(),
+            description: None,
+            template: None,
+        };
+        lookup.insert(0x002A_u16, bspc);
+
+        // MT(MOD_LCTL, KC_BACKSPACE) = 0x2000 | (0x01 << 8) | 0x2A
+        let kc = mod_tap(0x212A, &lookup);
+
+        assert_eq!(kc.bottom.as_deref(), Some("Back\nSpace"));
+        // The combined macro form keeps the plain single-line label.
+        assert_eq!(kc.label.as_deref(), Some("LCTL_T(Backspace)"));
+    }
+
+    #[test]
+    fn layer_tap_bottom_falls_back_to_label() {
+        let mut lookup = HashMap::new();
+        lookup.insert(
+            0x0007_u16,
+            KeyCode {
+                code: 0x0007,
+                key: "KC_D".to_owned(),
+                group: Some("basic".to_owned()),
+                label: Some("D".to_owned()),
+                top: None,
+                bottom: None,
+                cap_label: None,
+                aliases: Vec::new(),
+                description: None,
+                template: None,
+            },
+        );
+
+        // LT(1, KC_D) = 0x4000 | (1 << 8) | 0x07
+        let kc = layer_tap(0x4107, &lookup);
+
+        assert_eq!(kc.bottom.as_deref(), Some("D"));
     }
 
     #[test]

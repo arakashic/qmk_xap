@@ -33,6 +33,11 @@ pub struct KeyCode {
     #[serde(default)]
     #[serde_as(as = "NoneAsEmptyString")]
     pub bottom: Option<String>,
+    /// Cap-only label. `\n` is a hard line break. Display-only: never used for
+    /// composite labels, search, or key identity — those use `label`.
+    #[serde(default)]
+    #[serde_as(as = "NoneAsEmptyString")]
+    pub cap_label: Option<String>,
     #[serde(default)]
     pub aliases: Vec<String>,
     #[serde(default)]
@@ -59,6 +64,7 @@ impl KeyCode {
             label: Some(keycode),
             top: None,
             bottom: None,
+            cap_label: None,
             aliases: vec![],
             description: None,
             template: None,
@@ -384,6 +390,7 @@ mod test {
                 label: None,
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec!["XXXXXXX".to_owned()],
                 description: None,
                 template: None,
@@ -399,6 +406,7 @@ mod test {
                 label: None,
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec!["_______".to_owned(), "KC_TRNS".to_owned()],
                 description: None,
                 template: None,
@@ -414,6 +422,7 @@ mod test {
                 label: Some("A".to_owned()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -429,6 +438,7 @@ mod test {
                 label: Some("B".to_owned()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
@@ -616,6 +626,7 @@ mod test {
                 label: Some("0x000A".to_owned()),
                 top: None,
                 bottom: None,
+                cap_label: None,
                 aliases: vec![],
                 description: None,
                 template: None,
