@@ -531,6 +531,46 @@ mod test {
     }
 
     #[test]
+    /// Joystick and programmable buttons both carry the label "Button N", so
+    /// they render identically on a cap once placed on the board, where no tab
+    /// disambiguates them. The shipped overrides must give them distinct
+    /// cap-only abbreviations.
+    #[test]
+    pub fn button_cap_labels_disambiguate_joystick_from_programmable() {
+        let assets = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+        let catalog = read_xap_keycode_catalog(&AssetSource::Fs(assets))
+            .expect("failed to load shipped assets");
+        let view = catalog.view_for_version(None);
+
+        let find = |key: &str| {
+            view.tabs
+                .iter()
+                .flat_map(|t| t.subgroups.iter())
+                .flat_map(|s| s.codes.iter())
+                .find(|c| c.key == key)
+                .unwrap_or_else(|| panic!("{key} missing from the view"))
+                .clone()
+        };
+
+        let joy = find("QK_JOYSTICK_BUTTON_1");
+        let prog = find("QK_PROGRAMMABLE_BUTTON_1");
+
+        // The ambiguity this guards against.
+        assert_eq!(joy.label.as_deref(), Some("Button 1"));
+        assert_eq!(prog.label.as_deref(), Some("Button 1"));
+
+        assert_eq!(joy.cap_label.as_deref(), Some("B1"));
+        assert_eq!(prog.cap_label.as_deref(), Some("PB1"));
+        assert_ne!(joy.cap_label, prog.cap_label);
+
+        // Two-digit indices keep the same shape.
+        assert_eq!(find("QK_JOYSTICK_BUTTON_31").cap_label.as_deref(), Some("B31"));
+        assert_eq!(find("QK_PROGRAMMABLE_BUTTON_32").cap_label.as_deref(), Some("PB32"));
+
+        // Mouse buttons were deliberately left unabbreviated.
+        assert_eq!(find("QK_MOUSE_BUTTON_1").cap_label, None);
+    }
+
     pub fn shipped_assets_load_and_apply_overrides() {
         let assets = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
         let catalog = read_xap_keycode_catalog(&AssetSource::Fs(assets))
