@@ -204,7 +204,14 @@ export function KeymapPage() {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
       <LayerBar layerCount={layerCount} />
       {/* Keymap region: board + encoder rail scroll together, independently of the picker. */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {/* Clicks that miss a key or encoder-slot button clear the selection. */}
+      <div
+        data-testid="keymap-region"
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest('button')) picker.deselect()
+        }}
+        style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}
+      >
         <div style={{ display: 'flex', justifyContent: 'center', padding: 12 }}>
           <Board
             keymap={keymap}

@@ -12,6 +12,8 @@ interface PickerState {
   query: string
   open(target: PickerTarget): void
   close(): void
+  /** Clear the selected target without touching the pin preference. */
+  deselect(): void
   togglePin(): void
   setTab(id: string): void
   setQuery(q: string): void
@@ -31,6 +33,7 @@ export const usePickerStore = create<PickerState>((set) => ({
   query: '',
   open: (target) => set({ dockOpen: true, target, pending: null, query: '', hovered: null }),
   close: () => set((s) => s.dockPinned ? s : { dockOpen: false, target: null, pending: null }),
+  deselect: () => set((s) => ({ target: null, pending: null, dockOpen: s.dockPinned })),
   togglePin: () => set((s) => ({ dockPinned: !s.dockPinned })),
   setTab: (id) => set({ activeTab: id, query: '' }),
   setQuery: (q) => set({ query: q }),

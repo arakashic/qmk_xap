@@ -382,4 +382,54 @@ describe('KeymapPage flow integration', () => {
     const encoderMap = await client.getEncoderKeymap(DEVICE_ID)
     expect(encoderMap[0][0].cw.key).toBe('KC_B')
   })
+
+  it('clicking empty space clears the selection and closes an unpinned dock', async () => {
+    const client = new MockXapClient()
+    const qc = makeQc()
+
+    useUiStore.setState({ activeDeviceId: DEVICE_ID, selectedLayer: 0 })
+    render(<Wrapper client={client} qc={qc} />)
+
+    const boardA = await waitForBoard()
+    fireEvent.click(boardA!)
+    expect(usePickerStore.getState().target).not.toBeNull()
+    expect(usePickerStore.getState().dockOpen).toBe(true)
+
+    fireEvent.click(screen.getByTestId('keymap-region'))
+
+    expect(usePickerStore.getState().target).toBeNull()
+    expect(usePickerStore.getState().pending).toBeNull()
+    expect(usePickerStore.getState().dockOpen).toBe(false)
+  })
+
+  it('clicking empty space with a pinned dock clears the selection but keeps it open', async () => {
+    const client = new MockXapClient()
+    const qc = makeQc()
+
+    useUiStore.setState({ activeDeviceId: DEVICE_ID, selectedLayer: 0 })
+    render(<Wrapper client={client} qc={qc} />)
+
+    const boardA = await waitForBoard()
+    fireEvent.click(boardA!)
+    act(() => { usePickerStore.setState({ dockPinned: true }) })
+
+    fireEvent.click(screen.getByTestId('keymap-region'))
+
+    expect(usePickerStore.getState().target).toBeNull()
+    expect(usePickerStore.getState().dockOpen).toBe(true)
+  })
+
+  it('clicking a board key does not deselect it', async () => {
+    const client = new MockXapClient()
+    const qc = makeQc()
+
+    useUiStore.setState({ activeDeviceId: DEVICE_ID, selectedLayer: 0 })
+    render(<Wrapper client={client} qc={qc} />)
+
+    const boardA = await waitForBoard()
+    fireEvent.click(boardA!)
+
+    // The click bubbles to the keymap region; the button guard must swallow it.
+    expect(usePickerStore.getState().target).not.toBeNull()
+  })
 })
