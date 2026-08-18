@@ -52,4 +52,10 @@ describe('fitLines', () => {
   it('maxFontSize caps the ladder', () => {
     expect(fitLines('A', CAP, CAP, 11).fontSize).toBe(11)
   })
+
+  it('maxFontSize below the ladder floor still wraps, at the floor size', () => {
+    const fit = fitLines('Backlight Step', CAP, CAP, 5)
+    expect(fit.lines).toEqual(['Backlight', 'Step'])
+    expect(fit.fontSize).toBe(8)
+  })
 })

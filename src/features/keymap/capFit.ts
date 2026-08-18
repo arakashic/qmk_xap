@@ -55,9 +55,12 @@ export function fitLines(
   const usableH = Math.max(height - PAD * 2, 1)
   const segments = text.split('\n')
   const ladder = LADDER.filter((size) => size <= maxFontSize)
+  // Below the floor, still run one pass at the floor size instead of
+  // skipping the loop and returning un-wrapped segments.
+  const rungs = ladder.length ? ladder : [LADDER[LADDER.length - 1]]
 
   let result: FitResult = { lines: segments, fontSize: LADDER[LADDER.length - 1] }
-  for (const fontSize of ladder) {
+  for (const fontSize of rungs) {
     const maxChars = Math.max(Math.floor(usableW / (fontSize * CHAR_RATIO)), 1)
     const lines = segments.flatMap((segment) => wrapWords(segment, maxChars))
     result = { lines, fontSize }
