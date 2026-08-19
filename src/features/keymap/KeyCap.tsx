@@ -6,6 +6,12 @@ import { fitLines, LINE_RATIO } from './capFit'
 // Cap size for the legend specimen (used standalone / in picker)
 const CAP_SIZE = 58
 
+// Group-tag sizing for prefix caps. The tag is secondary text, so it may go
+// below the 8px legend floor rather than overflow the cap.
+const TAG_MAX_SIZE = 8
+const TAG_MIN_SIZE = 6
+const TAG_GAP = 3
+
 interface KeyCapProps {
   /** The keycode to render. */
   code: KeyCode
@@ -134,11 +140,27 @@ function renderLegend(legend: LegendModel, live: boolean, width: number, height:
     }
 
     case 'prefix': {
-      // The tag occupies ~11px above the payload.
-      const fit = fitLines(legend.payload, width, height - 11, 12)
+      // Group tags are snake_case machine identifiers, so underscores are the
+      // word breaks. Only `programmable_button` is long enough to need the
+      // 7/6 rungs, but every tag goes through the same path.
+      const tagFit = fitLines(legend.tag.replace(/_/g, ' '), width, height * 0.5, TAG_MAX_SIZE, TAG_MIN_SIZE)
+      const tagHeight = tagFit.lines.length * tagFit.fontSize * LINE_RATIO + TAG_GAP
+      const fit = fitLines(legend.payload, width, height - tagHeight, 12)
       return (
         <>
-          <span style={{ fontSize: 8, color: '#94a3b8', marginBottom: 3 }}>{legend.tag}</span>
+          <span
+            data-testid="cap-tag"
+            style={{
+              fontSize: tagFit.fontSize,
+              lineHeight: LINE_RATIO,
+              whiteSpace: 'pre',
+              textAlign: 'center',
+              color: '#94a3b8',
+              marginBottom: TAG_GAP,
+            }}
+          >
+            {tagFit.lines.join('\n')}
+          </span>
           <span
             data-testid="cap-legend"
             style={{ fontSize: fit.fontSize, fontWeight: 600, lineHeight: LINE_RATIO, whiteSpace: 'pre', textAlign: 'center' }}

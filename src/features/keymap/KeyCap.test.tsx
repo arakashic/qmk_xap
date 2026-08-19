@@ -62,3 +62,17 @@ it('wraps the tap zone of a split cap', () => {
   )
   expect(screen.getByTestId('cap-tap').textContent).toBe('Back\nSpace')
 })
+
+// Group tags are snake_case; `programmable_button` is the only one too long for
+// the cap at the 8px tag size.
+it('wraps and shrinks an overlong group tag', () => {
+  render(<KeyCap code={{ key: 'QK_PROGRAMMABLE_BUTTON_1', group: 'programmable_button', label: 'Button 1', cap_label: 'PB1' }} />)
+  const tag = screen.getByTestId('cap-tag')
+  expect(tag.textContent).toBe('programmable\nbutton')
+  expect(screen.getByTestId('cap-legend').textContent).toBe('PB1')
+})
+
+it('leaves a short group tag on one line, with the underscore read as a space', () => {
+  render(<KeyCap code={{ key: 'RGB_MOD', group: 'rgb_matrix', label: 'Mode+' }} />)
+  expect(screen.getByTestId('cap-tag').textContent).toBe('rgb matrix')
+})

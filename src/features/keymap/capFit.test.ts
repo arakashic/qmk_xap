@@ -49,6 +49,24 @@ describe('fitLines', () => {
     expect(fitLines('', CAP, CAP).lines).toEqual([''])
   })
 
+  it('defaults to the 8px legend floor even when nothing fits', () => {
+    // Guards the payload path: adding the 7/6 tag rungs must not let a legend
+    // shrink past 8.
+    expect(fitLines('Supercalifragilistic', 30, 30).fontSize).toBe(8)
+  })
+
+  it('minFontSize opens the smaller rungs for secondary text like group tags', () => {
+    const fit = fitLines('programmable button', 54, 24, 8, 6)
+    expect(fit.lines).toEqual(['programmable', 'button'])
+    expect(fit.fontSize).toBe(6)
+  })
+
+  it('a short tag stays at the top of the tag ladder', () => {
+    const fit = fitLines('joystick', 54, 24, 8, 6)
+    expect(fit.lines).toEqual(['joystick'])
+    expect(fit.fontSize).toBe(8)
+  })
+
   it('maxFontSize caps the ladder', () => {
     expect(fitLines('A', CAP, CAP, 11).fontSize).toBe(11)
   })

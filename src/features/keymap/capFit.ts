@@ -3,8 +3,15 @@
 // keycode_display.hjson `cap_label` entries express a break the wrap rule
 // cannot find (e.g. "Back\nSpace"). No per-key rules live here.
 
-/** Font sizes tried in order. 14 matches the KeyCap base size. */
-const LADDER = [14, 13, 12, 11, 10, 9, 8]
+/**
+ * Font sizes tried in order. 14 matches the KeyCap base size; 8 is the floor
+ * for legends. The 7/6 rungs exist only for group tags, which are secondary
+ * text and are reached by passing a lower `minFontSize`.
+ */
+const LADDER = [14, 13, 12, 11, 10, 9, 8, 7, 6]
+
+/** Smallest size a legend may use. Tags opt below it explicitly. */
+const LEGEND_FLOOR = 8
 
 /** Inset on each side, px. */
 const PAD = 3
@@ -50,16 +57,17 @@ export function fitLines(
   width: number,
   height: number,
   maxFontSize: number = LADDER[0],
+  minFontSize: number = LEGEND_FLOOR,
 ): FitResult {
   const usableW = Math.max(width - PAD * 2, 1)
   const usableH = Math.max(height - PAD * 2, 1)
   const segments = text.split('\n')
-  const ladder = LADDER.filter((size) => size <= maxFontSize)
+  const ladder = LADDER.filter((size) => size <= maxFontSize && size >= minFontSize)
   // Below the floor, still run one pass at the floor size instead of
   // skipping the loop and returning un-wrapped segments.
-  const rungs = ladder.length ? ladder : [LADDER[LADDER.length - 1]]
+  const rungs = ladder.length ? ladder : [minFontSize]
 
-  let result: FitResult = { lines: segments, fontSize: LADDER[LADDER.length - 1] }
+  let result: FitResult = { lines: segments, fontSize: rungs[rungs.length - 1] }
   for (const fontSize of rungs) {
     const maxChars = Math.max(Math.floor(usableW / (fontSize * CHAR_RATIO)), 1)
     const lines = segments.flatMap((segment) => wrapWords(segment, maxChars))
